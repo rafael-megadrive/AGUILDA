@@ -41,6 +41,8 @@ import {
 import { BarChart, Bar, XAxis, ResponsiveContainer, Cell, Tooltip } from 'recharts';
 import { View, User, Professional, Chat, Message as MessageType, PortfolioItem, Review } from './types';
 import logo from './logo.png';
+import { supabase } from './lib/supabase';
+import { Session } from '@supabase/supabase-js';
 
 // Mock Data
 const MOCK_REVIEWS_INITIAL: Review[] = [
@@ -140,6 +142,55 @@ export default function App() {
         }
     });
 
+
+    const [session, setSession] = useState<Session | null>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        // Get initial session
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            setSession(session);
+            if (session?.user) {
+                const role = session.user.user_metadata.role as 'client' | 'professional';
+                if (role) {
+                    setUserRole(role);
+                    setCurrentView(role === 'client' ? 'client_home' : 'professional_home');
+                    setCurrentUser(prev => ({
+                        ...prev,
+                        id: session.user.id,
+                        email: session.user.email || '',
+                        name: session.user.user_metadata.name || 'User',
+                        role: role
+                    }));
+                }
+            }
+            setLoading(false);
+        });
+
+        // Listen for auth changes
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            setSession(session);
+            if (session?.user) {
+                const role = session.user.user_metadata.role as 'client' | 'professional';
+                if (role) {
+                    setUserRole(role);
+                    setCurrentView(role === 'client' ? 'client_home' : 'professional_home');
+                    setCurrentUser(prev => ({
+                        ...prev,
+                        id: session.user.id,
+                        email: session.user.email || '',
+                        name: session.user.user_metadata.name || 'User',
+                        role: role
+                    }));
+                }
+            } else {
+                setCurrentView('role_selection');
+            }
+        });
+
+        return () => subscription.unsubscribe();
+    }, []);
+
     // Save reviews to localStorage whenever they change
     useEffect(() => {
         localStorage.setItem('guilda_reviews', JSON.stringify(reviews));
@@ -236,11 +287,9 @@ export default function App() {
         }
     };
 
-    const logout = () => {
-        setViewHistory(['login']);
-        setCurrentView('login');
-        setSelectedPro(null);
-        setActiveChatId(null);
+    const logout = async () => {
+        const { error } = await supabase.auth.signOut();
+        if (error) console.error('Error signing out:', error);
     };
 
     // --- Components for Screens ---
@@ -392,147 +441,253 @@ export default function App() {
         </div>
     );
 
-    const LoginScreen = () => (
-        <div className="min-h-screen bg-[#101822] flex items-center justify-center p-4">
-            <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="w-full max-w-md bg-[#1f2937] rounded-3xl overflow-hidden border border-gray-800 shadow-2xl relative"
-            >
-                <button
-                    onClick={() => navigate('role_selection', true)}
-                    className="absolute top-6 left-6 z-20 text-white/50 hover:text-white transition-colors"
+    const LoginScreen = () => {
+        const [email, setEmail] = useState('');
+        const [password, setPassword] = useState('');
+        const [error, setError] = useState<string | null>(null);
+        const [isLoggingIn, setIsLoggingIn] = useState(false);
+
+        const handleLogin = async (e: React.FormEvent) => {
+            e.preventDefault();
+            setError(null);
+            setIsLoggingIn(true);
+            try {
+                const { error: loginError } = await supabase.auth.signInWithPassword({
+                    email,
+                    password,
+                });
+                if (loginError) throw loginError;
+            } catch (err: any) {
+                setError(err.message || 'Erro ao entrar. Verifique suas credenciais.');
+            } finally {
+                setIsLoggingIn(false);
+            }
+        };
+
+        return (
+            <div className="min-h-screen bg-[#101822] flex items-center justify-center p-4">
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="w-full max-w-md bg-[#1f2937] rounded-3xl overflow-hidden border border-gray-800 shadow-2xl relative"
                 >
-                    <ArrowLeft className="w-6 h-6" />
-                </button>
-
-                <div className="h-48 bg-gradient-to-br from-[#1b7cf5] to-[#0891b2] flex flex-col items-center justify-center relative">
-                    <div className="w-20 h-20 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center shadow-xl ring-1 ring-white/20 mb-4 transform rotate-3 overflow-hidden">
-                        <img src={logo} className="w-14 h-14 object-contain drop-shadow-lg" alt="Logo" />
-                    </div>
-                    <h1 className="text-3xl font-bold text-white tracking-tight italic">Guilda</h1>
-                    <p className="text-white/70 text-sm mt-1">{userRole === 'client' ? 'Encontre profissionais de elite' : 'Sua plataforma de negócios'}</p>
-                </div>
-
-                <div className="p-8">
-                    <div className="flex items-center justify-between mb-6">
-                        <h2 className="text-2xl font-bold text-white">Entrar como <span className="text-[#1b7cf5] capitalize">{userRole === 'client' ? 'Cliente' : 'Profissional'}</span></h2>
-                    </div>
-                    <div className="space-y-4">
-                        <div>
-                            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 ml-1">Telefone</label>
-                            <div className="relative">
-                                <Smartphone className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 w-5 h-5" />
-                                <input
-                                    type="tel"
-                                    placeholder="(00) 00000-0000"
-                                    className="w-full bg-[#111827] border border-gray-700 rounded-xl py-3.5 pl-12 pr-4 text-white focus:ring-2 focus:ring-[#1b7cf5] focus:border-transparent transition-all"
-                                />
-                            </div>
-                        </div>
-                        <div>
-                            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 ml-1">Senha</label>
-                            <div className="relative">
-                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 w-5 h-5" />
-                                <input
-                                    type="password"
-                                    placeholder="••••••••"
-                                    className="w-full bg-[#111827] border border-gray-700 rounded-xl py-3.5 pl-12 pr-12 text-white focus:ring-2 focus:ring-[#1b7cf5] focus:border-transparent transition-all"
-                                />
-                                <button className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white">
-                                    <EyeOff className="w-5 h-5" />
-                                </button>
-                            </div>
-                        </div>
-                        <div className="flex justify-end">
-                            <button className="text-sm font-semibold text-[#1b7cf5] hover:underline">Esqueceu a senha?</button>
-                        </div>
-
-                        <button
-                            onClick={() => navigate(userRole === 'client' ? 'client_home' : 'professional_home')}
-                            className="w-full bg-[#1b7cf5] hover:bg-[#1b7cf5]/90 text-white font-bold py-4 rounded-xl shadow-lg shadow-[#1b7cf5]/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
-                        >
-                            Entrar <ChevronRight className="w-5 h-5" />
-                        </button>
-
-                        <div className="relative my-6">
-                            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-700"></div></div>
-                            <div className="relative flex justify-center text-xs uppercase tracking-widest text-gray-500 bg-[#1f2937] px-4">Ou continue com</div>
-                        </div>
-
-                        <button className="w-full bg-[#111827] border border-gray-800 text-white py-3 rounded-xl flex items-center justify-center gap-3 hover:bg-gray-800 transition-colors">
-                            <img src="https://www.google.com/favicon.ico" className="w-5 h-5" alt="Google" />
-                            <span className="font-semibold">Google</span>
-                        </button>
-                    </div>
-                </div>
-
-                <div className="bg-[#111827]/50 p-6 text-center border-t border-gray-800">
-                    <p className="text-gray-400 text-sm">
-                        Não tem uma conta?
-                        <button onClick={() => navigate('register')} className="font-bold text-[#1b7cf5] ml-1 hover:underline">Cadastre-se</button>
-                    </p>
-                </div>
-            </motion.div>
-        </div>
-    );
-
-    const RegisterScreen = () => (
-        <div className="min-h-screen bg-[#101822] flex items-center justify-center p-4">
-            <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="w-full max-w-md bg-[#1f2937] rounded-3xl overflow-hidden border border-gray-800 shadow-2xl"
-            >
-                <div className="p-8">
-                    <button onClick={() => navigate('login')} className="mb-6 text-gray-400 hover:text-white flex items-center gap-2">
-                        <ArrowLeft className="w-5 h-5" /> Voltar
+                    <button
+                        onClick={() => navigate('role_selection', true)}
+                        className="absolute top-6 left-6 z-20 text-white/50 hover:text-white transition-colors"
+                    >
+                        <ArrowLeft className="w-6 h-6" />
                     </button>
-                    <h2 className="text-3xl font-bold text-white mb-2">Criar Conta</h2>
-                    <p className="text-gray-400 mb-8">Junte-se à nossa comunidade de {userRole === 'client' ? 'contratantes' : 'profissionais'}</p>
 
-                    <div className="space-y-4">
-                        <div>
-                            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 ml-1">Nome Completo</label>
-                            <input type="text" placeholder="Seu nome" className="w-full bg-[#111827] border border-gray-700 rounded-xl py-3.5 px-4 text-white focus:ring-2 focus:ring-[#1b7cf5]" />
+                    <div className="h-48 bg-gradient-to-br from-[#1b7cf5] to-[#0891b2] flex flex-col items-center justify-center relative">
+                        <div className="w-20 h-20 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center shadow-xl ring-1 ring-white/20 mb-4 transform rotate-3 overflow-hidden">
+                            <img src={logo} className="w-14 h-14 object-contain drop-shadow-lg" alt="Logo" />
                         </div>
-                        <div>
-                            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 ml-1">E-mail</label>
-                            <input type="email" placeholder="seu@email.com" className="w-full bg-[#111827] border border-gray-700 rounded-xl py-3.5 px-4 text-white focus:ring-2 focus:ring-[#1b7cf5]" />
+                        <h1 className="text-3xl font-bold text-white tracking-tight italic">Guilda</h1>
+                        <p className="text-white/70 text-sm mt-1">{userRole === 'client' ? 'Encontre profissionais de elite' : 'Sua plataforma de negócios'}</p>
+                    </div>
+
+                    <div className="p-8">
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-2xl font-bold text-white">Entrar como <span className="text-[#1b7cf5] capitalize">{userRole === 'client' ? 'Cliente' : 'Profissional'}</span></h2>
                         </div>
-                        {userRole === 'professional' && (
+                        <form onSubmit={handleLogin} className="space-y-4">
+                            {error && (
+                                <div className="bg-red-500/10 border border-red-500/20 text-red-500 text-xs p-3 rounded-xl mb-4">
+                                    {error}
+                                </div>
+                            )}
                             <div>
-                                <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 ml-1">Especialidade / Profissão</label>
+                                <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 ml-1">E-mail</label>
                                 <div className="relative">
-                                    <Briefcase className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 w-5 h-5" />
-                                    <select className="w-full bg-[#111827] border border-gray-700 rounded-xl py-3.5 pl-12 pr-4 text-white focus:ring-2 focus:ring-[#1b7cf5] appearance-none cursor-pointer">
-                                        <option>Eletricista</option>
-                                        <option>Encanador</option>
-                                        <option>Pintor</option>
-                                        <option>Designer</option>
-                                        <option>Diarista</option>
-                                        <option>Manutenção</option>
-                                        <option>Outros</option>
-                                    </select>
+                                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 w-5 h-5" />
+                                    <input
+                                        type="email"
+                                        value={email}
+                                        onChange={(e) => setEmail(e.target.value)}
+                                        placeholder="seu@email.com"
+                                        className="w-full bg-[#111827] border border-gray-700 rounded-xl py-3.5 pl-12 pr-4 text-white focus:ring-2 focus:ring-[#1b7cf5] focus:border-transparent transition-all"
+                                        required
+                                    />
                                 </div>
                             </div>
-                        )}
-                        <div>
-                            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 ml-1">Senha</label>
-                            <input type="password" placeholder="••••••••" className="w-full bg-[#111827] border border-gray-700 rounded-xl py-3.5 px-4 text-white focus:ring-2 focus:ring-[#1b7cf5]" />
-                        </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 ml-1">Senha</label>
+                                <div className="relative">
+                                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 w-5 h-5" />
+                                    <input
+                                        type="password"
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        placeholder="••••••••"
+                                        className="w-full bg-[#111827] border border-gray-700 rounded-xl py-3.5 pl-12 pr-12 text-white focus:ring-2 focus:ring-[#1b7cf5] focus:border-transparent transition-all"
+                                        required
+                                    />
+                                </div>
+                            </div>
+                            <div className="flex justify-end">
+                                <button type="button" className="text-sm font-semibold text-[#1b7cf5] hover:underline">Esqueceu a senha?</button>
+                            </div>
 
-                        <button
-                            onClick={() => navigate(userRole === 'client' ? 'client_home' : 'professional_home')}
-                            className="w-full bg-[#1b7cf5] hover:bg-[#1b7cf5]/90 text-white font-bold py-4 rounded-xl shadow-lg mt-4"
-                        >
-                            Criar Conta
-                        </button>
+                            <button
+                                type="submit"
+                                disabled={isLoggingIn}
+                                className="w-full bg-[#1b7cf5] hover:bg-[#1b7cf5]/90 text-white font-bold py-4 rounded-xl shadow-lg shadow-[#1b7cf5]/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {isLoggingIn ? (
+                                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                ) : (
+                                    <>Entrar <ChevronRight className="w-5 h-5" /></>
+                                )}
+                            </button>
+
+                            <div className="relative my-6">
+                                <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-700"></div></div>
+                                <div className="relative flex justify-center text-xs uppercase tracking-widest text-gray-500 bg-[#1f2937] px-4">Ou continue com</div>
+                            </div>
+
+                            <button type="button" className="w-full bg-[#111827] border border-gray-800 text-white py-3 rounded-xl flex items-center justify-center gap-3 hover:bg-gray-800 transition-colors">
+                                <img src="https://www.google.com/favicon.ico" className="w-5 h-5" alt="Google" />
+                                <span className="font-semibold">Google</span>
+                            </button>
+                        </form>
                     </div>
-                </div>
-            </motion.div>
-        </div>
-    );
+
+                    <div className="bg-[#111827]/50 p-6 text-center border-t border-gray-800">
+                        <p className="text-gray-400 text-sm">
+                            Não tem uma conta?
+                            <button onClick={() => navigate('register')} className="font-bold text-[#1b7cf5] ml-1 hover:underline">Cadastre-se</button>
+                        </p>
+                    </div>
+                </motion.div>
+            </div>
+        );
+    };
+
+    const RegisterScreen = () => {
+        const [name, setName] = useState('');
+        const [email, setEmail] = useState('');
+        const [password, setPassword] = useState('');
+        const [specialty, setSpecialty] = useState('Eletricista');
+        const [error, setError] = useState<string | null>(null);
+        const [isRegistering, setIsRegistering] = useState(false);
+
+        const handleRegister = async (e: React.FormEvent) => {
+            e.preventDefault();
+            setError(null);
+            setIsRegistering(true);
+            try {
+                const { error: registerError } = await supabase.auth.signUp({
+                    email,
+                    password,
+                    options: {
+                        data: {
+                            name,
+                            role: userRole,
+                            specialty: userRole === 'professional' ? specialty : undefined,
+                        }
+                    }
+                });
+                if (registerError) throw registerError;
+                // Redirection is handled by onAuthStateChange
+            } catch (err: any) {
+                setError(err.message || 'Erro ao criar conta.');
+            } finally {
+                setIsRegistering(false);
+            }
+        };
+
+        return (
+            <div className="min-h-screen bg-[#101822] flex items-center justify-center p-4">
+                <motion.div
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    className="w-full max-w-md bg-[#1f2937] rounded-3xl overflow-hidden border border-gray-800 shadow-2xl"
+                >
+                    <div className="p-8">
+                        <button onClick={() => navigate('login')} className="mb-6 text-gray-400 hover:text-white flex items-center gap-2">
+                            <ArrowLeft className="w-5 h-5" /> Voltar
+                        </button>
+                        <h2 className="text-3xl font-bold text-white mb-2">Criar Conta</h2>
+                        <p className="text-gray-400 mb-8">Junte-se à nossa comunidade de {userRole === 'client' ? 'contratantes' : 'profissionais'}</p>
+
+                        <form onSubmit={handleRegister} className="space-y-4">
+                            {error && (
+                                <div className="bg-red-500/10 border border-red-500/20 text-red-500 text-xs p-3 rounded-xl mb-4">
+                                    {error}
+                                </div>
+                            )}
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 ml-1">Nome Completo</label>
+                                <input
+                                    type="text"
+                                    value={name}
+                                    onChange={(e) => setName(e.target.value)}
+                                    placeholder="Seu nome"
+                                    className="w-full bg-[#111827] border border-gray-700 rounded-xl py-3.5 px-4 text-white focus:ring-2 focus:ring-[#1b7cf5]"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 ml-1">E-mail</label>
+                                <input
+                                    type="email"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    placeholder="seu@email.com"
+                                    className="w-full bg-[#111827] border border-gray-700 rounded-xl py-3.5 px-4 text-white focus:ring-2 focus:ring-[#1b7cf5]"
+                                    required
+                                />
+                            </div>
+                            {userRole === 'professional' && (
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 ml-1">Especialidade / Profissão</label>
+                                    <div className="relative">
+                                        <Briefcase className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 w-5 h-5" />
+                                        <select
+                                            value={specialty}
+                                            onChange={(e) => setSpecialty(e.target.value)}
+                                            className="w-full bg-[#111827] border border-gray-700 rounded-xl py-3.5 pl-12 pr-4 text-white focus:ring-2 focus:ring-[#1b7cf5] appearance-none cursor-pointer"
+                                        >
+                                            <option>Eletricista</option>
+                                            <option>Encanador</option>
+                                            <option>Pintor</option>
+                                            <option>Designer</option>
+                                            <option>Diarista</option>
+                                            <option>Manutenção</option>
+                                            <option>Outros</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            )}
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 ml-1">Senha</label>
+                                <input
+                                    type="password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    placeholder="••••••••"
+                                    className="w-full bg-[#111827] border border-gray-700 rounded-xl py-3.5 px-4 text-white focus:ring-2 focus:ring-[#1b7cf5]"
+                                    required
+                                />
+                            </div>
+
+                            <button
+                                type="submit"
+                                disabled={isRegistering}
+                                className="w-full bg-[#1b7cf5] hover:bg-[#1b7cf5]/90 text-white font-bold py-4 rounded-xl shadow-lg mt-4 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                            >
+                                {isRegistering ? (
+                                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                ) : (
+                                    'Criar Conta'
+                                )}
+                            </button>
+                        </form>
+                    </div>
+                </motion.div>
+            </div>
+        );
+    };
 
     const ClientHomeScreen = () => {
         const handleSearch = (e: React.FormEvent) => {
