@@ -1,0 +1,7 @@
+{
+  "name": "Guilda",
+  "description": "Plataforma premium de conexão entre profissionais qualificados e contratantes, facilitando a busca, agendamento e gestão de serviços.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}

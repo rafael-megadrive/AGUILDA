@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Guilda</string>
+    <string name="title_activity_main">Guilda</string>
+    <string name="package_name">com.guilda.app</string>
+    <string name="custom_url_scheme">com.guilda.app</string>
+</resources>
