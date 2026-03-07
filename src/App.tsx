@@ -610,7 +610,7 @@ export default function App() {
                     className="w-full max-w-md bg-[#1f2937] rounded-3xl overflow-hidden border border-gray-800 shadow-2xl"
                 >
                     <div className="p-8">
-                        <button onClick={() => navigate('login')} className="mb-6 text-gray-400 hover:text-white flex items-center gap-2">
+                        <button onClick={() => navigate('login', true)} className="mb-6 text-gray-400 hover:text-white flex items-center gap-2">
                             <ArrowLeft className="w-5 h-5" /> Voltar
                         </button>
                         <h2 className="text-3xl font-bold text-white mb-2">Criar Conta</h2>
