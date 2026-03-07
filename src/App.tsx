@@ -155,13 +155,19 @@ export default function App() {
                 if (role) {
                     setUserRole(role);
                     setCurrentView(role === 'client' ? 'client_home' : 'professional_home');
-                    setCurrentUser(prev => ({
-                        ...prev,
+
+                    // Match with mock data if it's a known test user (Carlos or Ana)
+                    const mockPro = MOCK_PROS.find(p => p.email === session.user.email);
+
+                    setCurrentUser({
                         id: session.user.id,
                         email: session.user.email || '',
                         name: session.user.user_metadata.name || 'User',
-                        role: role
-                    }));
+                        role: role,
+                        avatar: session.user.user_metadata.avatar || (role === 'professional' ? 'https://picsum.photos/seed/pro-default/200/200' : 'https://picsum.photos/seed/user-default/200/200'),
+                        location: session.user.user_metadata.location || 'São Paulo, SP',
+                        ...(mockPro && role === 'professional' ? mockPro : {})
+                    } as any);
                 }
             }
             setLoading(false);
@@ -175,16 +181,31 @@ export default function App() {
                 if (role) {
                     setUserRole(role);
                     setCurrentView(role === 'client' ? 'client_home' : 'professional_home');
-                    setCurrentUser(prev => ({
-                        ...prev,
+
+                    const mockPro = MOCK_PROS.find(p => p.email === session.user.email);
+
+                    setCurrentUser({
                         id: session.user.id,
                         email: session.user.email || '',
                         name: session.user.user_metadata.name || 'User',
-                        role: role
-                    }));
+                        role: role,
+                        avatar: session.user.user_metadata.avatar || (role === 'professional' ? 'https://picsum.photos/seed/pro-default/200/200' : 'https://picsum.photos/seed/user-default/200/200'),
+                        location: session.user.user_metadata.location || 'São Paulo, SP',
+                        ...(mockPro && role === 'professional' ? mockPro : {})
+                    } as any);
                 }
             } else {
+                setUserRole('client');
                 setCurrentView('role_selection');
+                setCurrentUser({
+                    id: 'c1',
+                    name: 'Visitante',
+                    email: 'cliente@exemplo.com',
+                    role: 'client',
+                    avatar: 'https://picsum.photos/seed/user123/200/200',
+                    location: 'São Paulo, SP',
+                    phone: '(11) 99999-9999'
+                });
             }
         });
 
@@ -206,21 +227,14 @@ export default function App() {
         }
     }, [currentView]);
 
-    const [currentUser, setCurrentUser] = useState<User>(() => {
-        if (userRole === 'professional') return {
-            ...MOCK_PROS[0],
-            name: 'Carlos Silva',
-            avatar: 'https://picsum.photos/seed/mountain/200/200',
-        };
-        return {
-            id: 'c1',
-            name: 'Visitante',
-            email: 'cliente@exemplo.com',
-            role: 'client',
-            avatar: 'https://picsum.photos/seed/user123/200/200',
-            location: 'São Paulo, SP',
-            phone: '(11) 99999-9999'
-        };
+    const [currentUser, setCurrentUser] = useState<User>({
+        id: 'c1',
+        name: 'Visitante',
+        email: 'cliente@exemplo.com',
+        role: 'client',
+        avatar: 'https://picsum.photos/seed/user123/200/200',
+        location: 'São Paulo, SP',
+        phone: '(11) 99999-9999'
     });
 
     // Schedule State
