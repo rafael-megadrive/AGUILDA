@@ -57,6 +57,7 @@ export interface Chat {
 export interface Review {
   id: string;
   professionalId: string;
+  userId: string;
   userName: string;
   userAvatar?: string;
   rating: number;

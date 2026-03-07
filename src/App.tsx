@@ -46,9 +46,9 @@ import { Session } from '@supabase/supabase-js';
 
 // Mock Data
 const MOCK_REVIEWS_INITIAL: Review[] = [
-    { id: 'r1', professionalId: 'pro1', userName: 'Maria Oliveira', rating: 5, comment: 'Trabalho impecável! O Carlos foi super pontual e a pintura ficou perfeita.', date: 'Há 2 dias', userAvatar: 'https://picsum.photos/seed/maria/100/100' },
-    { id: 'r2', professionalId: 'pro1', userName: 'Ricardo Santos', rating: 4, comment: 'Muito bom profissional. Recomendo.', date: 'Há 1 semana', userAvatar: 'https://picsum.photos/seed/ricardo/100/100' },
-    { id: 'r3', professionalId: 'pro1', userName: 'Ana Costa', rating: 5, comment: 'Excelente atendimento e qualidade.', date: 'Há 2 semanas', userAvatar: 'https://picsum.photos/seed/ana/100/100' },
+    { id: 'r1', professionalId: 'pro1', userId: 'c1', userName: 'Maria Oliveira', rating: 5, comment: 'Trabalho impecável! O Carlos foi super pontual e a pintura ficou perfeita.', date: 'Há 2 dias', userAvatar: 'https://picsum.photos/seed/maria/100/100' },
+    { id: 'r2', professionalId: 'pro1', userId: 'c2', userName: 'Ricardo Santos', rating: 4, comment: 'Muito bom profissional. Recomendo.', date: 'Há 1 semana', userAvatar: 'https://picsum.photos/seed/ricardo/100/100' },
+    { id: 'r3', professionalId: 'pro1', userId: 'c3', userName: 'Ana Costa', rating: 5, comment: 'Excelente atendimento e qualidade.', date: 'Há 2 semanas', userAvatar: 'https://picsum.photos/seed/ana/100/100' },
 ];
 
 const MOCK_PROS: Professional[] = [
@@ -123,24 +123,20 @@ export default function App() {
     const [viewHistory, setViewHistory] = useState<View[]>(['splash']);
     const [userRole, setUserRole] = useState<'client' | 'professional'>('client');
     const [selectedPro, setSelectedPro] = useState<Professional | null>(null);
-    const [chats, setChats] = useState<Chat[]>(MOCK_CHATS);
     const [activeChatId, setActiveChatId] = useState<string | null>(null);
-    const activeChat = chats.find(c => c.id === activeChatId) || null;
     const [searchQuery, setSearchQuery] = useState('');
     const [viewerImage, setViewerImage] = useState<string | null>(null);
     const [appBackground, setAppBackground] = useState<string>('src/bg_connection.png');
     const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+    const [reviewComment, setReviewComment] = useState('');
+    const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+    const [professionals, setProfessionals] = useState<Professional[]>([]);
 
-    // Initialize reviews from localStorage
-    const [reviews, setReviews] = useState<Review[]>(() => {
-        try {
-            const saved = localStorage.getItem('guilda_reviews');
-            return saved ? JSON.parse(saved) : MOCK_REVIEWS_INITIAL;
-        } catch (e) {
-            console.error('Error loading reviews:', e);
-            return MOCK_REVIEWS_INITIAL;
-        }
-    });
+    // Initialize reviews from database
+    const [reviews, setReviews] = useState<Review[]>([]);
+    const [chats, setChats] = useState<Chat[]>([]);
+    const [activeChatMessages, setActiveChatMessages] = useState<MessageType[]>([]);
+    const activeChat = chats.find(c => c.id === activeChatId) || null;
 
 
     const [session, setSession] = useState<Session | null>(null);
@@ -148,25 +144,22 @@ export default function App() {
 
     useEffect(() => {
         // Get initial session
-        supabase.auth.getSession().then(({ data: { session } }) => {
+        supabase.auth.getSession().then(async ({ data: { session } }) => {
             setSession(session);
             if (session?.user) {
-                const role = session.user.user_metadata.role as 'client' | 'professional';
-                if (role) {
-                    setUserRole(role);
-                    setCurrentView(role === 'client' ? 'client_home' : 'professional_home');
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', session.user.id)
+                    .single();
 
-                    // Match with mock data if it's a known test user (Carlos or Ana)
-                    const mockPro = MOCK_PROS.find(p => p.email === session.user.email);
-
+                if (profile) {
+                    setUserRole(profile.role);
+                    setCurrentView(profile.role === 'client' ? 'client_home' : 'professional_home');
                     setCurrentUser({
-                        id: session.user.id,
-                        email: session.user.email || '',
-                        name: session.user.user_metadata.name || 'User',
-                        role: role,
-                        avatar: session.user.user_metadata.avatar || (role === 'professional' ? 'https://picsum.photos/seed/pro-default/200/200' : 'https://picsum.photos/seed/user-default/200/200'),
-                        location: session.user.user_metadata.location || 'São Paulo, SP',
-                        ...(mockPro && role === 'professional' ? mockPro : {})
+                        ...profile,
+                        name: profile.full_name || 'User',
+                        avatar: profile.avatar_url || (profile.role === 'professional' ? 'https://picsum.photos/seed/pro-default/200/200' : 'https://picsum.photos/seed/user-default/200/200'),
                     } as any);
                 }
             }
@@ -174,24 +167,22 @@ export default function App() {
         });
 
         // Listen for auth changes
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
             setSession(session);
             if (session?.user) {
-                const role = session.user.user_metadata.role as 'client' | 'professional';
-                if (role) {
-                    setUserRole(role);
-                    setCurrentView(role === 'client' ? 'client_home' : 'professional_home');
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', session.user.id)
+                    .single();
 
-                    const mockPro = MOCK_PROS.find(p => p.email === session.user.email);
-
+                if (profile) {
+                    setUserRole(profile.role);
+                    setCurrentView(profile.role === 'client' ? 'client_home' : 'professional_home');
                     setCurrentUser({
-                        id: session.user.id,
-                        email: session.user.email || '',
-                        name: session.user.user_metadata.name || 'User',
-                        role: role,
-                        avatar: session.user.user_metadata.avatar || (role === 'professional' ? 'https://picsum.photos/seed/pro-default/200/200' : 'https://picsum.photos/seed/user-default/200/200'),
-                        location: session.user.user_metadata.location || 'São Paulo, SP',
-                        ...(mockPro && role === 'professional' ? mockPro : {})
+                        ...profile,
+                        name: profile.full_name || 'User',
+                        avatar: profile.avatar_url || (profile.role === 'professional' ? 'https://picsum.photos/seed/pro-default/200/200' : 'https://picsum.photos/seed/user-default/200/200'),
                     } as any);
                 }
             } else {
@@ -211,6 +202,163 @@ export default function App() {
 
         return () => subscription.unsubscribe();
     }, []);
+
+    // Fetch professionals
+    useEffect(() => {
+        const fetchPros = async () => {
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('role', 'professional');
+
+            if (data) {
+                const formattedPros = data.map(p => ({
+                    ...p,
+                    name: p.full_name || 'Profissional',
+                    avatar: p.avatar_url || 'https://picsum.photos/seed/pro-default/200/200',
+                    rating: parseFloat(p.rating || '0'),
+                    reviewsCount: p.reviews_count || 0,
+                    completedServices: p.completed_services || 0,
+                    yearsExp: p.years_exp || 0,
+                    portfolio: p.portfolio || []
+                }));
+                setProfessionals(formattedPros);
+            }
+        };
+
+        fetchPros();
+    }, []);
+
+    // Fetch reviews
+    useEffect(() => {
+        const fetchReviews = async () => {
+            const { data, error } = await supabase
+                .from('reviews')
+                .select(`
+                    *,
+                    user:profiles!user_id(full_name, avatar_url)
+                `)
+                .order('created_at', { ascending: false });
+
+            if (data) {
+                const formattedReviews = data.map(r => ({
+                    id: r.id,
+                    professionalId: r.professional_id,
+                    userId: r.user_id,
+                    userName: (r.user as any)?.full_name || 'Usuário',
+                    userAvatar: (r.user as any)?.avatar_url || 'https://picsum.photos/seed/user-default/200/200',
+                    rating: r.rating,
+                    comment: r.comment,
+                    date: new Date(r.created_at).toLocaleDateString('pt-BR')
+                }));
+                setReviews(formattedReviews);
+            }
+        };
+
+        fetchReviews();
+    }, []);
+
+    // Fetch Chats
+    useEffect(() => {
+        if (!session?.user) return;
+
+        const fetchChats = async () => {
+            const { data, error } = await supabase
+                .from('chats')
+                .select(`
+                    *,
+                    sender:profiles!sender_id(id, full_name, avatar_url, role),
+                    receiver:profiles!receiver_id(id, full_name, avatar_url, role)
+                `)
+                .or(`sender_id.eq.${session.user.id},receiver_id.eq.${session.user.id}`)
+                .order('updated_at', { ascending: false });
+
+            if (data) {
+                const formattedChats: Chat[] = data.map(c => {
+                    const isSender = c.sender_id === session.user.id;
+                    const participant = isSender ? c.receiver : c.sender;
+
+                    return {
+                        id: c.id,
+                        participant: {
+                            ...participant,
+                            name: participant.full_name || 'Usuário',
+                            avatar: participant.avatar_url || 'https://picsum.photos/seed/user-default/200/200'
+                        },
+                        lastMessage: c.last_message || 'Nenhuma mensagem',
+                        timestamp: new Date(c.updated_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+                        unreadCount: 0,
+                        messages: []
+                    };
+                });
+                setChats(formattedChats);
+            }
+        };
+
+        fetchChats();
+
+        // Real-time subscription for chats
+        const channel = supabase
+            .channel('public:chats')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'chats' }, () => {
+                fetchChats();
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [session?.user]);
+
+    // Fetch Messages for active chat
+    useEffect(() => {
+        if (!activeChat) {
+            setActiveChatMessages([]);
+            return;
+        }
+
+        const fetchMessages = async () => {
+            const { data, error } = await supabase
+                .from('messages')
+                .select('*')
+                .eq('chat_id', activeChat.id)
+                .order('created_at', { ascending: true });
+
+            if (data) {
+                setActiveChatMessages(data.map(m => ({
+                    id: m.id,
+                    senderId: m.sender_id,
+                    text: m.text,
+                    timestamp: new Date(m.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+                })));
+            }
+        };
+
+        fetchMessages();
+
+        // Real-time subscription for messages
+        const channel = supabase
+            .channel(`chat:${activeChat.id}`)
+            .on('postgres_changes', {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'messages',
+                filter: `chat_id=eq.${activeChat.id}`
+            }, (payload) => {
+                const newMessage = payload.new;
+                setActiveChatMessages(prev => [...prev, {
+                    id: newMessage.id,
+                    senderId: newMessage.sender_id,
+                    text: newMessage.text,
+                    timestamp: new Date(newMessage.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+                }]);
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [activeChat]);
 
     // Save reviews to localStorage whenever they change
     useEffect(() => {
@@ -816,7 +964,7 @@ export default function App() {
                             <button className="text-[#1b7cf5] text-sm font-bold">Ver todos</button>
                         </div>
                         <div className="space-y-4">
-                            {MOCK_PROS.map(pro => (
+                            {(professionals.length > 0 ? professionals : MOCK_PROS).map(pro => (
                                 <div
                                     key={pro.id}
                                     onClick={() => { setSelectedPro(pro); navigate('pro_profile'); }}
@@ -867,9 +1015,9 @@ export default function App() {
 
     const ProfessionalHomeScreen = () => {
         const stats = [
-            { label: 'Nota Geral', value: '4.9', icon: <Star className="w-5 h-5 text-yellow-500 fill-yellow-500" />, trend: '+0.2' },
-            { label: 'Visitas', value: '1.2k', icon: <Eye className="w-5 h-5 text-[#1b7cf5]" />, trend: '+12%' },
-            { label: 'Mensagens', value: '48', icon: <MessageSquare className="w-5 h-5 text-emerald-500" />, trend: '+5' },
+            { label: 'Nota Geral', value: currentUser.rating?.toString() || '0', icon: <Star className="w-5 h-5 text-yellow-500 fill-yellow-500" />, trend: 'Sincronizado' },
+            { label: 'Serviços', value: (currentUser as Professional).completedServices?.toString() || '0', icon: <CheckCircle2 className="w-5 h-5 text-[#1b7cf5]" />, trend: 'Total' },
+            { label: 'Avaliações', value: (currentUser as Professional).reviewsCount?.toString() || '0', icon: <MessageSquare className="w-5 h-5 text-emerald-500" />, trend: 'Feedback' },
         ];
 
         return (
@@ -1252,48 +1400,57 @@ export default function App() {
                 </div>
             </header>
 
-            <main className="px-2 space-y-1">
-                {chats.map(chat => (
-                    <div
-                        key={chat.id}
-                        onClick={() => {
-                            setActiveChatId(chat.id);
-                            setChats(prev => prev.map(c => c.id === chat.id ? { ...c, unreadCount: 0 } : c));
-                            navigate('chat_room');
-                        }}
-                        className="flex items-center p-4 rounded-2xl hover:bg-[#1f2937] transition-colors cursor-pointer group"
-                    >
-                        <div
-                            className="relative shrink-0 cursor-pointer"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                if (chat.participant.role === 'professional') {
-                                    setSelectedPro(chat.participant as Professional);
-                                    navigate('pro_profile');
-                                } else {
-                                    navigate('client_profile');
-                                }
-                            }}
-                        >
-                            <img src={chat.participant.avatar} className="w-14 h-14 rounded-full object-cover border-2 border-transparent hover:border-[#1b7cf5] transition-all" alt={chat.participant.name} />
-                            {chat.online && <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-[#101822] rounded-full"></div>}
+            <main className="px-2 space-y-1 mt-6">
+                {chats.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-20 text-center px-10">
+                        <div className="w-20 h-20 rounded-full bg-gray-800/50 flex items-center justify-center mb-6 border border-gray-700/50">
+                            <MessageSquare className="w-8 h-8 text-gray-600" />
                         </div>
-                        <div className="flex-1 min-w-0 ml-4 border-b border-gray-800/50 pb-4 group-hover:border-transparent">
-                            <div className="flex items-center justify-between mb-1">
-                                <h3 className="text-base font-bold text-white truncate">{chat.participant.name}</h3>
-                                <span className={`text-[10px] font-bold ${chat.unreadCount > 0 ? 'text-[#1b7cf5]' : 'text-gray-500'}`}>{chat.timestamp}</span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                                <p className={`text-sm truncate ${chat.unreadCount > 0 ? 'text-gray-200 font-semibold' : 'text-gray-500'}`}>{chat.lastMessage}</p>
-                                {chat.unreadCount > 0 && (
-                                    <span className="flex items-center justify-center w-5 h-5 ml-2 text-[10px] font-bold text-white bg-[#1b7cf5] rounded-full">
-                                        {chat.unreadCount}
-                                    </span>
-                                )}
-                            </div>
-                        </div>
+                        <h3 className="text-white font-bold mb-2">Sem conversas</h3>
+                        <p className="text-gray-500 text-sm">Suas conversas aparecerão aqui.</p>
                     </div>
-                ))}
+                ) : (
+                    chats.map(chat => (
+                        <div
+                            key={chat.id}
+                            onClick={() => {
+                                setActiveChatId(chat.id);
+                                navigate('chat_room');
+                            }}
+                            className="flex items-center p-4 rounded-2xl hover:bg-[#1f2937] transition-colors cursor-pointer group"
+                        >
+                            <div
+                                className="relative shrink-0 cursor-pointer"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (chat.participant.role === 'professional') {
+                                        setSelectedPro(chat.participant as Professional);
+                                        navigate('pro_profile');
+                                    } else {
+                                        navigate('client_profile');
+                                    }
+                                }}
+                            >
+                                <img src={chat.participant.avatar} className="w-14 h-14 rounded-full object-cover border-2 border-transparent hover:border-[#1b7cf5] transition-all" alt={chat.participant.name} />
+                                {chat.online && <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-[#101822] rounded-full"></div>}
+                            </div>
+                            <div className="flex-1 min-w-0 ml-4 border-b border-gray-800/50 pb-4 group-hover:border-transparent">
+                                <div className="flex items-center justify-between mb-1">
+                                    <h3 className="text-base font-bold text-white truncate">{chat.participant.name}</h3>
+                                    <span className={`text-[10px] font-bold ${chat.unreadCount > 0 ? 'text-[#1b7cf5]' : 'text-gray-500'}`}>{chat.timestamp}</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <p className={`text-sm truncate ${chat.unreadCount > 0 ? 'text-gray-200 font-semibold' : 'text-gray-500'}`}>{chat.lastMessage}</p>
+                                    {chat.unreadCount > 0 && (
+                                        <span className="flex items-center justify-center w-5 h-5 ml-2 text-[10px] font-bold text-white bg-[#1b7cf5] rounded-full">
+                                            {chat.unreadCount}
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    ))
+                )}
             </main>
 
             <nav className="fixed bottom-0 left-0 right-0 bg-[#1f2937]/95 backdrop-blur-lg border-t border-gray-800 px-8 py-4 pb-8 flex justify-around items-center z-40">
@@ -1324,36 +1481,58 @@ export default function App() {
         };
         const [newMessage, setNewMessage] = useState('');
 
-        const handleSend = () => {
-            if (!newMessage.trim()) return;
+        const handleSend = async () => {
+            if (!newMessage.trim() || !session?.user) return;
 
-            const msg: MessageType = {
-                id: Date.now().toString(),
-                text: newMessage,
-                senderId: 'me',
-                timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-            };
-
-            if (chat.id === 'temp') {
-                const newChat: Chat = {
-                    id: Math.random().toString(36).substr(2, 9),
-                    participant: chat.participant,
-                    lastMessage: newMessage,
-                    timestamp: 'Agora',
-                    unreadCount: 0,
-                    messages: [...(chat.messages || []), msg]
-                };
-                setChats(prev => [newChat, ...prev]);
-                setActiveChatId(newChat.id);
-            } else {
-                setChats(prev => prev.map(c => c.id === chat.id ? {
-                    ...c,
-                    lastMessage: newMessage,
-                    timestamp: 'Agora',
-                    messages: [...c.messages, msg]
-                } : c));
-            }
+            const text = newMessage;
             setNewMessage('');
+
+            let chatId = activeChat?.id;
+
+            // If it's a temp chat (new conversation), create the chat first
+            if (!chatId) {
+                const targetId = chat.participant.id;
+                const { data: newChat, error: chatError } = await supabase
+                    .from('chats')
+                    .insert({
+                        sender_id: session.user.id,
+                        receiver_id: targetId,
+                        last_message: text,
+                        updated_at: new Date().toISOString()
+                    })
+                    .select()
+                    .single();
+
+                if (chatError) {
+                    alert('Erro ao iniciar conversa: ' + chatError.message);
+                    setNewMessage(text);
+                    return;
+                }
+                chatId = newChat.id;
+                setActiveChatId(chatId);
+            }
+
+            const { error: msgError } = await supabase
+                .from('messages')
+                .insert({
+                    chat_id: chatId,
+                    sender_id: session.user.id,
+                    text: text
+                });
+
+            if (msgError) {
+                alert('Erro ao enviar mensagem: ' + msgError.message);
+                setNewMessage(text);
+            } else {
+                // Update chat timestamp and last message
+                await supabase
+                    .from('chats')
+                    .update({
+                        last_message: text,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', chatId);
+            }
         };
 
         return (
@@ -1394,14 +1573,14 @@ export default function App() {
                         <span className="text-[10px] font-bold uppercase tracking-widest text-gray-600 bg-gray-800/40 px-3 py-1 rounded-full">Hoje</span>
                     </div>
 
-                    {(chat.messages || []).map(msg => (
-                        <div key={msg.id} className={`flex items-end gap-2 max-w-[85%] ${msg.senderId === 'me' ? 'ml-auto flex-row-reverse' : ''}`}>
-                            <div className={`p-3 rounded-2xl border ${msg.senderId === 'me'
+                    {activeChatMessages.map(msg => (
+                        <div key={msg.id} className={`flex items-end gap-2 max-w-[85%] ${msg.senderId === session?.user?.id ? 'ml-auto flex-row-reverse' : ''}`}>
+                            <div className={`p-3 rounded-2xl border ${msg.senderId === session?.user?.id
                                 ? 'bg-[#1b7cf5] text-white rounded-br-none border-[#1b7cf5] shadow-lg shadow-[#1b7cf5]/10'
                                 : 'bg-[#1f2937] text-gray-200 rounded-bl-none border-gray-800'
                                 }`}>
                                 <p className="text-sm leading-relaxed">{msg.text}</p>
-                                <span className={`text-[9px] mt-1 block text-right ${msg.senderId === 'me' ? 'text-white/70' : 'text-gray-600'}`}>{msg.timestamp}</span>
+                                <span className={`text-[9px] mt-1 block text-right ${msg.senderId === session?.user?.id ? 'text-white/70' : 'text-gray-600'}`}>{msg.timestamp}</span>
                             </div>
                         </div>
                     ))}
@@ -1438,20 +1617,45 @@ export default function App() {
         const [bio, setBio] = useState((currentUser as Professional).bio || '');
         const [specialty, setSpecialty] = useState((currentUser as Professional).specialty || '');
         const [avatar, setAvatar] = useState(currentUser.avatar || '');
+        const [isSaving, setIsSaving] = useState(false);
         const fileInputRef = useRef<HTMLInputElement>(null);
         const backgroundInputRef = useRef<HTMLInputElement>(null);
 
-        const handleSave = (e: React.FormEvent) => {
+        const handleSave = async (e: React.FormEvent) => {
             e.preventDefault();
-            setCurrentUser(prev => ({
-                ...prev,
-                name,
+            setIsSaving(true);
+
+            const updates = {
+                id: currentUser.id,
+                full_name: name,
                 location,
                 email,
                 bio,
-                avatar
-            }));
-            navigate(userRole === 'professional' ? 'professional_home' : 'client_home');
+                specialty,
+                avatar_url: avatar,
+                updated_at: new Date().toISOString(),
+            };
+
+            const { error } = await supabase
+                .from('profiles')
+                .update(updates)
+                .eq('id', currentUser.id);
+
+            if (error) {
+                alert('Erro ao salvar perfil: ' + error.message);
+            } else {
+                setCurrentUser(prev => ({
+                    ...prev,
+                    name,
+                    location,
+                    email,
+                    bio,
+                    specialty,
+                    avatar
+                }));
+                navigate(userRole === 'professional' ? 'professional_home' : 'client_home');
+            }
+            setIsSaving(false);
         };
 
         const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1604,8 +1808,17 @@ export default function App() {
                             </div>
                         </div>
 
-                        <button type="submit" className="w-full bg-[#1b7cf5] text-white font-bold py-4 rounded-xl shadow-lg shadow-[#1b7cf5]/20 flex items-center justify-center gap-2 active:scale-95 transition-all">
-                            <Check className="w-5 h-5" /> Salvar Alterações
+                        <button
+                            type="submit"
+                            disabled={isSaving}
+                            className={`w-full ${isSaving ? 'bg-gray-600' : 'bg-[#1b7cf5]'} text-white font-bold py-4 rounded-xl shadow-lg shadow-[#1b7cf5]/20 flex items-center justify-center gap-2 active:scale-95 transition-all`}
+                        >
+                            {isSaving ? (
+                                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                            ) : (
+                                <Check className="w-5 h-5" />
+                            )}
+                            {isSaving ? 'Salvando...' : 'Salvar Alterações'}
                         </button>
 
                         <button
@@ -1957,22 +2170,43 @@ export default function App() {
     const ReviewSubmissionScreen = () => {
         const [rating, setRating] = useState(0);
         const [comment, setComment] = useState('');
+        const [isSubmitting, setIsSubmitting] = useState(false);
 
-        const handleSubmit = () => {
-            if (rating === 0) return;
+        const handleSubmit = async () => {
+            if (rating === 0 || isSubmitting) return;
+            setIsSubmitting(true);
 
-            const newReview: Review = {
-                id: Math.random().toString(36).substr(2, 9),
-                professionalId: selectedPro?.id || 'pro1',
-                userName: currentUser.name,
-                userAvatar: currentUser.avatar,
-                rating,
-                comment,
-                date: 'Agora'
-            };
+            const targetProId = selectedPro?.id || 'pro1';
 
-            setReviews(prev => [newReview, ...prev]);
-            navigate('professional_reviews');
+            const { data, error } = await supabase
+                .from('reviews')
+                .insert({
+                    professional_id: targetProId,
+                    user_id: currentUser.id,
+                    rating,
+                    comment
+                })
+                .select();
+
+            if (error) {
+                alert('Erro ao enviar avaliação: ' + error.message);
+            } else {
+                const newReview: Review = {
+                    id: data[0].id,
+                    professionalId: targetProId,
+                    userId: currentUser.id,
+                    userName: currentUser.name,
+                    userAvatar: currentUser.avatar,
+                    rating,
+                    comment,
+                    date: 'Agora'
+                };
+
+                setReviews(prev => [newReview, ...prev]);
+                alert('Avaliação enviada com sucesso!');
+                navigate('professional_reviews');
+            }
+            setIsSubmitting(false);
         };
 
         const getRatingText = () => {
@@ -2305,28 +2539,70 @@ export default function App() {
                     <h2 className="text-2xl font-bold text-white mb-2 text-center">Avaliar Atendimento</h2>
                     <p className="text-gray-400 text-center mb-10">Sua opinião é fundamental para mantermos a qualidade dos serviços.</p>
 
-                    <div className="flex justify-center gap-3 mb-10">
-                        {[1, 2, 3, 4, 5].map(s => (
-                            <button
-                                key={s}
-                                onClick={() => {
-                                    const newReview: Review = {
-                                        id: Math.random().toString(36).substr(2, 9),
-                                        professionalId: selectedPro?.id || 'pro1',
-                                        userName: currentUser.name,
-                                        userAvatar: currentUser.avatar,
-                                        rating: s,
-                                        comment: 'Ótimo atendimento, recomendo!',
-                                        date: 'Hoje'
-                                    };
-                                    setReviews(prev => [newReview, ...prev]);
-                                    setIsReviewModalOpen(false);
-                                }}
-                                className="w-12 h-12 rounded-2xl bg-[#111827] flex items-center justify-center hover:bg-[#1b7cf5] transition-all border border-gray-800 hover:border-[#1b7cf5]"
-                            >
-                                <Star className="text-yellow-500 fill-yellow-500 w-6 h-6" />
-                            </button>
-                        ))}
+                    <div className="space-y-6 mb-10">
+                        <div className="space-y-2 text-left">
+                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest ml-1">Seu Comentário</label>
+                            <textarea
+                                value={reviewComment}
+                                onChange={(e) => setReviewComment(e.target.value)}
+                                placeholder="Conte como foi o serviço..."
+                                className="w-full bg-[#111827] border border-gray-800 rounded-2xl p-4 text-white text-sm focus:ring-2 focus:ring-[#1b7cf5] resize-none"
+                                rows={3}
+                            />
+                        </div>
+
+                        <div className="space-y-4">
+                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest text-center block">Sua Nota</label>
+                            <div className="flex justify-center gap-3">
+                                {[1, 2, 3, 4, 5].map(s => (
+                                    <button
+                                        key={s}
+                                        disabled={isSubmittingReview}
+                                        onClick={async () => {
+                                            if (!reviewComment.trim()) {
+                                                alert('Por favor, escreva um comentário.');
+                                                return;
+                                            }
+                                            setIsSubmittingReview(true);
+                                            const targetProId = selectedPro?.id || 'pro1';
+
+                                            const { data, error } = await supabase
+                                                .from('reviews')
+                                                .insert({
+                                                    professional_id: targetProId,
+                                                    user_id: currentUser.id,
+                                                    rating: s,
+                                                    comment: reviewComment
+                                                })
+                                                .select();
+
+                                            if (error) {
+                                                alert('Erro ao enviar avaliação: ' + error.message);
+                                            } else {
+                                                const newReviewFormatted: Review = {
+                                                    id: data[0].id,
+                                                    professionalId: targetProId,
+                                                    userId: currentUser.id,
+                                                    userName: currentUser.name,
+                                                    userAvatar: currentUser.avatar,
+                                                    rating: s,
+                                                    comment: reviewComment,
+                                                    date: 'Hoje'
+                                                };
+                                                setReviews(prev => [newReviewFormatted, ...prev]);
+                                                setReviewComment('');
+                                                setIsReviewModalOpen(false);
+                                                alert('Avaliação enviada com sucesso!');
+                                            }
+                                            setIsSubmittingReview(false);
+                                        }}
+                                        className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${isSubmittingReview ? 'opacity-50' : 'active:scale-90'} bg-[#111827] border border-gray-800 hover:border-[#1b7cf5] group`}
+                                    >
+                                        <Star className="text-gray-700 group-hover:text-yellow-500 group-hover:fill-yellow-500 w-6 h-6" />
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
                     </div>
 
                     <div className="bg-[#111827] rounded-3xl p-6 border border-gray-800 mb-8">
