@@ -570,13 +570,15 @@ export default function App() {
         const [specialty, setSpecialty] = useState('Eletricista');
         const [error, setError] = useState<string | null>(null);
         const [isRegistering, setIsRegistering] = useState(false);
+        const [showConfirmationMsg, setShowConfirmationMsg] = useState(false);
 
         const handleRegister = async (e: React.FormEvent) => {
             e.preventDefault();
             setError(null);
+            setShowConfirmationMsg(false);
             setIsRegistering(true);
             try {
-                const { error: registerError } = await supabase.auth.signUp({
+                const { data, error: registerError } = await supabase.auth.signUp({
                     email,
                     password,
                     options: {
@@ -588,7 +590,11 @@ export default function App() {
                     }
                 });
                 if (registerError) throw registerError;
-                // Redirection is handled by onAuthStateChange
+
+                if (data.user && !data.session) {
+                    setShowConfirmationMsg(true);
+                }
+                // Redirection is handled by onAuthStateChange if session exists
             } catch (err: any) {
                 setError(err.message || 'Erro ao criar conta.');
             } finally {
@@ -614,6 +620,12 @@ export default function App() {
                             {error && (
                                 <div className="bg-red-500/10 border border-red-500/20 text-red-500 text-xs p-3 rounded-xl mb-4">
                                     {error}
+                                </div>
+                            )}
+                            {showConfirmationMsg && (
+                                <div className="bg-[#1b7cf5]/10 border border-[#1b7cf5]/20 text-[#1b7cf5] text-xs p-4 rounded-xl mb-4 flex items-center gap-3">
+                                    <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
+                                    <p>Conta criada! Por favor, verifique seu e-mail para confirmar seu cadastro.</p>
                                 </div>
                             )}
                             <div>
