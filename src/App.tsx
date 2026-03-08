@@ -501,7 +501,7 @@ export default function App() {
         const { replace = false, reset = false, ignoreGuards = false } = options || {};
         console.log(`[Navigation] navigate to: ${view}`, { replace, reset, ignoreGuards });
 
-        const CLIENT_ONLY_VIEWS: View[] = ['client_home', 'pro_profile', 'search', 'booking', 'client_profile'];
+        const CLIENT_ONLY_VIEWS: View[] = ['client_home', 'search', 'booking', 'client_profile'];
         const PRO_ONLY_VIEWS: View[] = ['professional_home', 'manage_portfolio', 'edit_schedule'];
 
         if (!ignoreGuards) {
@@ -554,53 +554,76 @@ export default function App() {
     // --- Components for Screens ---
 
     // Shared Navigation Components
-    const ClientBottomNav = () => (
-        <nav className="fixed bottom-0 left-0 right-0 bg-[#1f2937]/95 backdrop-blur-lg border-t border-gray-800 px-8 py-4 pb-8 flex justify-between items-center z-40">
-            <button onClick={() => navigate('client_home', { replace: true })} className={`flex flex-col items-center gap-1 ${currentView === 'client_home' ? 'text-[#1b7cf5]' : 'text-gray-500 hover:text-gray-300'}`}>
-                <Home className="w-6 h-6" />
-                <span className="text-[10px] font-bold">Início</span>
-            </button>
-            <button onClick={() => navigate('search', { replace: true })} className={`flex flex-col items-center gap-1 ${currentView === 'search' ? 'text-[#1b7cf5]' : 'text-gray-500 hover:text-gray-300'}`}>
-                <Search className="w-6 h-6" />
-                <span className="text-[10px] font-bold">Buscar</span>
-            </button>
-            <button onClick={() => navigate('messages', { replace: true })} className={`flex flex-col items-center gap-1 ${currentView === 'messages' ? 'text-[#1b7cf5]' : 'text-gray-500 hover:text-gray-300'}`}>
-                <MessageSquare className="w-6 h-6" />
-                <span className="text-[10px] font-bold">Mensagens</span>
-            </button>
-            <button onClick={() => navigate('edit_profile', { replace: true })} className={`flex flex-col items-center gap-1 ${['edit_profile', 'client_profile'].includes(currentView) ? 'text-[#1b7cf5]' : 'text-gray-500 hover:text-gray-300'}`}>
-                <UserIcon className="w-6 h-6" />
-                <span className="text-[10px] font-bold">Perfil</span>
-            </button>
-        </nav>
-    );
+    // Shared Navigation Components
+    const ClientBottomNav = () => {
+        const unreadNotifs = notifications.filter(n => !n.is_read).length;
+        const unreadMsgs = chats.filter(c => c.unread).length;
 
-    const ProfessionalBottomNav = () => (
-        <nav className="fixed bottom-0 left-0 right-0 bg-[#1f2937]/95 backdrop-blur-lg border-t border-gray-800 px-8 py-4 pb-8 flex justify-between items-center z-40">
-            <button onClick={() => navigate('professional_home', { replace: true })} className={`flex flex-col items-center gap-1 ${currentView === 'professional_home' ? 'text-[#1b7cf5]' : 'text-gray-500 hover:text-gray-300'}`}>
-                <Home className="w-6 h-6" />
-                <span className="text-[10px] font-bold">Início</span>
-            </button>
-            <button onClick={() => navigate('manage_portfolio', { replace: true })} className={`flex flex-col items-center gap-1 ${currentView === 'manage_portfolio' ? 'text-[#1b7cf5]' : 'text-gray-500 hover:text-gray-300'}`}>
-                <Grid className="w-6 h-6" />
-                <span className="text-[10px] font-bold">Portfólio</span>
-            </button>
-            <button onClick={() => navigate('messages', { replace: true })} className={`flex flex-col items-center gap-1 ${currentView === 'messages' ? 'text-[#1b7cf5]' : 'text-gray-500 hover:text-gray-300'}`}>
-                <MessageSquare className="w-6 h-6" />
-                <span className="text-[10px] font-bold">Mensagens</span>
-            </button>
-            <button
-                onClick={() => {
-                    setSelectedPro(currentUser as Professional);
-                    navigate('pro_profile', { replace: true });
-                }}
-                className={`flex flex-col items-center gap-1 ${['pro_profile', 'edit_profile'].includes(currentView) ? 'text-[#1b7cf5]' : 'text-gray-500 hover:text-gray-300'}`}
-            >
-                <UserIcon className="w-6 h-6" />
-                <span className="text-[10px] font-bold">Perfil</span>
-            </button>
-        </nav>
-    );
+        return (
+            <nav className="fixed bottom-0 left-0 right-0 bg-[#1f2937]/95 backdrop-blur-lg border-t border-gray-800 px-6 py-4 pb-8 flex justify-between items-center z-40">
+                <button onClick={() => navigate('client_home', { replace: true })} className={`flex flex-col items-center gap-1 ${currentView === 'client_home' ? 'text-[#1b7cf5]' : 'text-gray-500 hover:text-gray-300'}`}>
+                    <Home className="w-5 h-5" />
+                    <span className="text-[10px] font-bold">Início</span>
+                </button>
+                <button onClick={() => navigate('search', { replace: true })} className={`flex flex-col items-center gap-1 ${currentView === 'search' ? 'text-[#1b7cf5]' : 'text-gray-500 hover:text-gray-300'}`}>
+                    <Search className="w-5 h-5" />
+                    <span className="text-[10px] font-bold">Buscar</span>
+                </button>
+                <button onClick={() => navigate('messages', { replace: true })} className={`flex flex-col items-center gap-1 relative ${['messages', 'chat_room'].includes(currentView) ? 'text-[#1b7cf5]' : 'text-gray-500 hover:text-gray-300'}`}>
+                    <MessageSquare className="w-5 h-5" />
+                    <span className="text-[10px] font-bold">Mensagens</span>
+                    {unreadMsgs > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-[#1f2937]">{unreadMsgs}</span>}
+                </button>
+                <button onClick={() => navigate('notifications', { replace: true })} className={`flex flex-col items-center gap-1 relative ${currentView === 'notifications' ? 'text-[#1b7cf5]' : 'text-gray-500 hover:text-gray-300'}`}>
+                    <Bell className="w-5 h-5" />
+                    <span className="text-[10px] font-bold">Avisos</span>
+                    {unreadNotifs > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-[#1f2937]">{unreadNotifs}</span>}
+                </button>
+                <button onClick={() => navigate('edit_profile', { replace: true })} className={`flex flex-col items-center gap-1 ${['edit_profile', 'client_profile'].includes(currentView) ? 'text-[#1b7cf5]' : 'text-gray-500 hover:text-gray-300'}`}>
+                    <UserIcon className="w-5 h-5" />
+                    <span className="text-[10px] font-bold">Perfil</span>
+                </button>
+            </nav>
+        );
+    };
+
+    const ProfessionalBottomNav = () => {
+        const unreadNotifs = notifications.filter(n => !n.is_read).length;
+        const unreadMsgs = chats.filter(c => c.unread).length;
+
+        return (
+            <nav className="fixed bottom-0 left-0 right-0 bg-[#1f2937]/95 backdrop-blur-lg border-t border-gray-800 px-6 py-4 pb-8 flex justify-between items-center z-40">
+                <button onClick={() => navigate('professional_home', { replace: true })} className={`flex flex-col items-center gap-1 ${currentView === 'professional_home' ? 'text-[#1b7cf5]' : 'text-gray-500 hover:text-gray-300'}`}>
+                    <Home className="w-5 h-5" />
+                    <span className="text-[10px] font-bold">Início</span>
+                </button>
+                <button onClick={() => navigate('manage_portfolio', { replace: true })} className={`flex flex-col items-center gap-1 ${currentView === 'manage_portfolio' ? 'text-[#1b7cf5]' : 'text-gray-500 hover:text-gray-300'}`}>
+                    <Grid className="w-5 h-5" />
+                    <span className="text-[10px] font-bold">Portfólio</span>
+                </button>
+                <button onClick={() => navigate('messages', { replace: true })} className={`flex flex-col items-center gap-1 relative ${['messages', 'chat_room'].includes(currentView) ? 'text-[#1b7cf5]' : 'text-gray-500 hover:text-gray-300'}`}>
+                    <MessageSquare className="w-5 h-5" />
+                    <span className="text-[10px] font-bold">Mensagens</span>
+                    {unreadMsgs > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-[#1f2937]">{unreadMsgs}</span>}
+                </button>
+                <button onClick={() => navigate('notifications', { replace: true })} className={`flex flex-col items-center gap-1 relative ${currentView === 'notifications' ? 'text-[#1b7cf5]' : 'text-gray-500 hover:text-gray-300'}`}>
+                    <Bell className="w-5 h-5" />
+                    <span className="text-[10px] font-bold">Avisos</span>
+                    {unreadNotifs > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-[#1f2937]">{unreadNotifs}</span>}
+                </button>
+                <button
+                    onClick={() => {
+                        setSelectedPro(currentUser as Professional);
+                        navigate('pro_profile', { replace: true });
+                    }}
+                    className={`flex flex-col items-center gap-1 ${['pro_profile', 'edit_profile'].includes(currentView) ? 'text-[#1b7cf5]' : 'text-gray-500 hover:text-gray-300'}`}
+                >
+                    <UserIcon className="w-5 h-5" />
+                    <span className="text-[10px] font-bold">Perfil</span>
+                </button>
+            </nav>
+        );
+    };
 
     const SplashScreen = () => (
         <div className="min-h-screen bg-[#101822] flex flex-col items-center justify-center p-4 relative overflow-hidden">
@@ -1364,6 +1387,7 @@ export default function App() {
                         </button>
                     )}
                 </main>
+                <ProfessionalBottomNav />
             </div>
         );
     };
@@ -1619,6 +1643,7 @@ export default function App() {
                         ))
                     )}
                 </main>
+                {userRole === 'client' ? <ClientBottomNav /> : <ProfessionalBottomNav />}
             </div>
         );
     };
@@ -2438,6 +2463,11 @@ export default function App() {
                         <MessageSquare className="w-6 h-6" />
                         <span className="text-[10px] font-bold">Mensagens</span>
                     </button>
+                    <button onClick={() => navigate('notifications', { replace: true })} className="relative flex flex-col items-center gap-1 text-gray-500">
+                        <Bell className="w-6 h-6" />
+                        <span className="text-[10px] font-bold">Notificações</span>
+                        <span className="absolute top-0 right-2 bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">3</span>
+                    </button>
                     <button onClick={() => navigate('client_profile', { replace: true })} className="flex flex-col items-center gap-1 text-gray-500">
                         <UserIcon className="w-6 h-6" />
                         <span className="text-[10px] font-bold">Perfil</span>
@@ -2483,7 +2513,7 @@ export default function App() {
                         ].map((d, i) => (
                             <div
                                 key={i}
-                                className={`flex-shrink-0 w-16 h-20 rounded-2xl border flex flex-col items-center justify-center gap-1 transition-all ${d.active ? 'bg-[#1b7cf5] border-[#1b7cf5] shadow-lg shadow-[#1b7cf5]/20' : 'bg-[#111827] border-gray-800'
+                                className={`flex-shrink-0 w-16 h-20 rounded-2xl border flex flex-col items-center justify-center gap-1 transition-all ${d.active ? 'bg-[#1b7cf5] border-[#1b7cf5] text-white shadow-lg shadow-[#1b7cf5]/20' : 'bg-[#111827] border-gray-800'
                                     }`}
                             >
                                 <span className={`text-[8px] font-bold ${d.active ? 'text-white/80' : 'text-gray-500'}`}>{d.label}</span>
@@ -2944,6 +2974,7 @@ export default function App() {
                         <Star className="w-5 h-5" /> Avaliar Cliente
                     </button>
                 </main>
+                <ClientBottomNav />
             </div>
         );
     };
