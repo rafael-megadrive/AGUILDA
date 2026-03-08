@@ -420,7 +420,7 @@ export default function App() {
     // Navigation Helper
     const navigate = (view: View, replace = false) => {
         const CLIENT_ONLY_VIEWS: View[] = ['client_home', 'pro_profile', 'search', 'booking', 'client_profile'];
-        const PRO_ONLY_VIEWS: View[] = ['professional_home', 'manage_portfolio', 'edit_schedule', 'edit_profile'];
+        const PRO_ONLY_VIEWS: View[] = ['professional_home', 'manage_portfolio', 'edit_schedule'];
 
         if (userRole === 'client' && PRO_ONLY_VIEWS.includes(view)) {
             return;
@@ -875,7 +875,7 @@ export default function App() {
                     <div className="flex items-center justify-between mb-6">
                         <div className="flex items-center gap-3">
                             <div
-                                onClick={() => navigate('client_profile')}
+                                onClick={() => navigate('edit_profile')}
                                 className="w-10 h-10 rounded-full bg-[#1b7cf5]/20 border border-[#1b7cf5]/30 flex items-center justify-center overflow-hidden cursor-pointer"
                             >
                                 {currentUser.avatar ? (
@@ -885,7 +885,7 @@ export default function App() {
                                 )}
                             </div>
                             <div
-                                onClick={() => navigate('client_profile')}
+                                onClick={() => navigate('edit_profile')}
                                 className="cursor-pointer"
                             >
                                 <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Localização</span>
@@ -1004,7 +1004,7 @@ export default function App() {
                         <MessageSquare className="w-6 h-6" />
                         <span className="text-[10px] font-bold">Mensagens</span>
                     </button>
-                    <button onClick={() => navigate('client_profile')} className="flex flex-col items-center gap-1 text-gray-500">
+                    <button onClick={() => navigate('edit_profile')} className="flex flex-col items-center gap-1 text-gray-500">
                         <UserIcon className="w-6 h-6" />
                         <span className="text-[10px] font-bold">Perfil</span>
                     </button>
@@ -1040,7 +1040,7 @@ export default function App() {
                                 <Bell className="text-gray-400 w-5 h-5" />
                                 <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-[#1b7cf5] rounded-full"></span>
                             </button>
-                            <button onClick={() => { setSelectedPro(currentUser as Professional); navigate('pro_profile'); }} className="w-10 h-10 rounded-full bg-[#111827] border border-gray-700 flex items-center justify-center">
+                            <button onClick={() => navigate('edit_profile')} className="w-10 h-10 rounded-full bg-[#111827] border border-gray-700 flex items-center justify-center">
                                 <UserIcon className="text-gray-400 w-5 h-5" />
                             </button>
                         </div>
@@ -1304,15 +1304,21 @@ export default function App() {
                                 )}
                             </div>
                             <div className="grid grid-cols-3 gap-3">
-                                {pro.portfolio.map((item) => (
-                                    <div
-                                        key={item.id}
-                                        onClick={() => setViewerImage(item.imageUrl)}
-                                        className="aspect-square rounded-2xl overflow-hidden border border-white/5 active:scale-95 transition-all cursor-pointer shadow-lg"
-                                    >
-                                        <img src={item.imageUrl} className="w-full h-full object-cover" alt={item.title} />
+                                {pro.portfolio && pro.portfolio.length > 0 ? (
+                                    pro.portfolio.map((item) => (
+                                        <div
+                                            key={item.id}
+                                            onClick={() => setViewerImage(item.imageUrl)}
+                                            className="aspect-square rounded-2xl overflow-hidden border border-white/5 active:scale-95 transition-all cursor-pointer shadow-lg"
+                                        >
+                                            <img src={item.imageUrl} className="w-full h-full object-cover" alt={item.title} />
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div className="col-span-3 text-center py-6 bg-gray-900/50 rounded-2xl border border-dashed border-gray-800">
+                                        <p className="text-gray-600 text-[10px] uppercase font-bold tracking-widest">Nenhum item no portfólio</p>
                                     </div>
-                                ))}
+                                )}
                             </div>
                         </section>
 
