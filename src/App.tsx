@@ -143,75 +143,42 @@ export default function App() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        console.log('[Auth] Initializing auth...');
-        // Get initial session
-        supabase.auth.getSession().then(async ({ data: { session }, error }) => {
-            console.log('[Auth] getSession result:', { hasSession: !!session, error });
+        console.log('[Auth] Initializing auth system...');
+
+        const handleAuthChange = async (session: Session | null) => {
+            console.log('[Auth] Handling auth state change, session exists:', !!session);
             setSession(session);
+
             if (session?.user) {
                 try {
-                    console.log('[Auth] Fetching profile for user:', session.user.id);
+                    console.log('[Auth] Fetching profile for:', session.user.id);
                     const { data: profile, error: profileError } = await supabase
                         .from('profiles')
                         .select('*')
                         .eq('id', session.user.id)
                         .single();
 
-                    console.log('[Auth] Profile fetch result:', { profile, error: profileError });
+                    console.log('[Auth] Profile result:', { profile, error: profileError });
 
                     if (profile) {
                         setUserRole(profile.role);
-                        setCurrentView(profile.role === 'client' ? 'client_home' : 'professional_home');
                         setCurrentUser({
                             ...profile,
                             name: profile.full_name || 'User',
                             avatar: profile.avatar_url || (profile.role === 'professional' ? 'https://picsum.photos/seed/pro-default/200/200' : 'https://picsum.photos/seed/user-default/200/200'),
                         } as any);
-                    } else {
-                        console.warn('[Auth] No profile found for authenticated user');
-                        setCurrentView('complete_profile');
-                    }
-                } catch (err) {
-                    console.error('[Auth] Error initializing session:', err);
-                    setCurrentView('role_selection');
-                }
-            }
-            console.log('[Auth] Setting loading to false');
-            setLoading(false);
-        });
-
-        // Listen for auth changes
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-            console.log('[Auth] onAuthStateChange event:', event, 'Has session:', !!session);
-            setSession(session);
-            if (session?.user) {
-                try {
-                    const { data: profile, error: profileError } = await supabase
-                        .from('profiles')
-                        .select('*')
-                        .eq('id', session.user.id)
-                        .single();
-
-                    console.log('[Auth] onAuthStateChange profile result:', { profile, error: profileError });
-
-                    if (profile) {
-                        setUserRole(profile.role);
                         setCurrentView(profile.role === 'client' ? 'client_home' : 'professional_home');
-                        setCurrentUser({
-                            ...profile,
-                            name: profile.full_name || 'User',
-                            avatar: profile.avatar_url || (profile.role === 'professional' ? 'https://picsum.photos/seed/pro-default/200/200' : 'https://picsum.photos/seed/user-default/200/200'),
-                        } as any);
                     } else {
-                        // User exists in Auth but not in Profiles
-                        console.warn('[Auth] Redirecting to profile completion due to missing profile');
+                        console.warn('[Auth] No profile found - directing to complete_profile');
                         setCurrentView('complete_profile');
                     }
                 } catch (err) {
-                    console.error('[Auth] Error in onAuthStateChange:', err);
+                    console.error('[Auth] Error fetching profile:', err);
+                    // On error but with session, better to try complete_profile than role_selection
+                    setCurrentView('complete_profile');
                 }
             } else {
-                console.log('[Auth] No user session found, resetting to role_selection');
+                console.log('[Auth] No session - resetting to role_selection');
                 setUserRole('client');
                 setCurrentView('role_selection');
                 setCurrentUser({
@@ -224,10 +191,23 @@ export default function App() {
                     phone: '(11) 99999-9999'
                 });
             }
+
+            setLoading(false);
+        };
+
+        // Initial check
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            handleAuthChange(session);
+        });
+
+        // Listen for changes
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            handleAuthChange(session);
         });
 
         return () => subscription.unsubscribe();
     }, []);
+
 
     // Fetch professionals
     useEffect(() => {
@@ -1871,6 +1851,7 @@ export default function App() {
     };
 
     const CompleteProfileScreen = () => {
+        console.log('[App] Rendering CompleteProfileScreen');
         const [name, setName] = useState('');
         const [role, setRole] = useState<UserRole>(userRole || 'client');
         const [isSubmitting, setIsSubmitting] = useState(false);
@@ -2781,6 +2762,7 @@ export default function App() {
     );
 
     const renderView = () => {
+        console.log('[App] renderView currentView:', currentView, 'Session:', !!session);
         switch (currentView) {
             case 'splash': return <SplashScreen />;
             case 'role_selection': return <RoleSelectionScreen />;
