@@ -189,10 +189,10 @@ export default function App() {
                             name: profile.full_name || 'User',
                             avatar: profile.avatar_url || (profile.role === 'professional' ? 'https://picsum.photos/seed/pro-default/200/200' : 'https://picsum.photos/seed/user-default/200/200'),
                         } as any);
-                        navigate(profile.role === 'client' ? 'client_home' : 'professional_home', { reset: true });
+                        navigate(profile.role === 'client' ? 'client_home' : 'professional_home', { reset: true, ignoreGuards: true });
                     } else {
                         console.warn('[Auth] No profile found - directing to complete_profile');
-                        navigate('complete_profile', { reset: true });
+                        navigate('complete_profile', { reset: true, ignoreGuards: true });
                     }
                 } catch (err) {
                     console.error('[Auth] Error fetching profile:', err);
@@ -497,15 +497,23 @@ export default function App() {
     };
 
     // Navigation Helper
-    const navigate = (view: View, options?: { replace?: boolean; reset?: boolean }) => {
-        const { replace = false, reset = false } = options || {};
-        console.log(`[Navigation] navigate to: ${view}`, { replace, reset });
+    const navigate = (view: View, options?: { replace?: boolean; reset?: boolean; ignoreGuards?: boolean }) => {
+        const { replace = false, reset = false, ignoreGuards = false } = options || {};
+        console.log(`[Navigation] navigate to: ${view}`, { replace, reset, ignoreGuards });
 
         const CLIENT_ONLY_VIEWS: View[] = ['client_home', 'pro_profile', 'search', 'booking', 'client_profile'];
         const PRO_ONLY_VIEWS: View[] = ['professional_home', 'manage_portfolio', 'edit_schedule'];
 
-        if (userRole === 'client' && PRO_ONLY_VIEWS.includes(view)) return;
-        if (userRole === 'professional' && CLIENT_ONLY_VIEWS.includes(view)) return;
+        if (!ignoreGuards) {
+            if (userRole === 'client' && PRO_ONLY_VIEWS.includes(view)) {
+                console.warn(`[Navigation] Blocked access to PRO view: ${view} for client`);
+                return;
+            }
+            if (userRole === 'professional' && CLIENT_ONLY_VIEWS.includes(view)) {
+                console.warn(`[Navigation] Blocked access to CLIENT view: ${view} for professional`);
+                return;
+            }
+        }
 
         // Prevent duplicate consecutive entries
         if (viewHistory[viewHistory.length - 1] === view) return;
@@ -544,6 +552,55 @@ export default function App() {
     };
 
     // --- Components for Screens ---
+
+    // Shared Navigation Components
+    const ClientBottomNav = () => (
+        <nav className="fixed bottom-0 left-0 right-0 bg-[#1f2937]/95 backdrop-blur-lg border-t border-gray-800 px-8 py-4 pb-8 flex justify-between items-center z-40">
+            <button onClick={() => navigate('client_home', { replace: true })} className={`flex flex-col items-center gap-1 ${currentView === 'client_home' ? 'text-[#1b7cf5]' : 'text-gray-500 hover:text-gray-300'}`}>
+                <Home className="w-6 h-6" />
+                <span className="text-[10px] font-bold">Início</span>
+            </button>
+            <button onClick={() => navigate('search', { replace: true })} className={`flex flex-col items-center gap-1 ${currentView === 'search' ? 'text-[#1b7cf5]' : 'text-gray-500 hover:text-gray-300'}`}>
+                <Search className="w-6 h-6" />
+                <span className="text-[10px] font-bold">Buscar</span>
+            </button>
+            <button onClick={() => navigate('messages', { replace: true })} className={`flex flex-col items-center gap-1 ${currentView === 'messages' ? 'text-[#1b7cf5]' : 'text-gray-500 hover:text-gray-300'}`}>
+                <MessageSquare className="w-6 h-6" />
+                <span className="text-[10px] font-bold">Mensagens</span>
+            </button>
+            <button onClick={() => navigate('edit_profile', { replace: true })} className={`flex flex-col items-center gap-1 ${['edit_profile', 'client_profile'].includes(currentView) ? 'text-[#1b7cf5]' : 'text-gray-500 hover:text-gray-300'}`}>
+                <UserIcon className="w-6 h-6" />
+                <span className="text-[10px] font-bold">Perfil</span>
+            </button>
+        </nav>
+    );
+
+    const ProfessionalBottomNav = () => (
+        <nav className="fixed bottom-0 left-0 right-0 bg-[#1f2937]/95 backdrop-blur-lg border-t border-gray-800 px-8 py-4 pb-8 flex justify-between items-center z-40">
+            <button onClick={() => navigate('professional_home', { replace: true })} className={`flex flex-col items-center gap-1 ${currentView === 'professional_home' ? 'text-[#1b7cf5]' : 'text-gray-500 hover:text-gray-300'}`}>
+                <Home className="w-6 h-6" />
+                <span className="text-[10px] font-bold">Início</span>
+            </button>
+            <button onClick={() => navigate('manage_portfolio', { replace: true })} className={`flex flex-col items-center gap-1 ${currentView === 'manage_portfolio' ? 'text-[#1b7cf5]' : 'text-gray-500 hover:text-gray-300'}`}>
+                <Grid className="w-6 h-6" />
+                <span className="text-[10px] font-bold">Portfólio</span>
+            </button>
+            <button onClick={() => navigate('messages', { replace: true })} className={`flex flex-col items-center gap-1 ${currentView === 'messages' ? 'text-[#1b7cf5]' : 'text-gray-500 hover:text-gray-300'}`}>
+                <MessageSquare className="w-6 h-6" />
+                <span className="text-[10px] font-bold">Mensagens</span>
+            </button>
+            <button
+                onClick={() => {
+                    setSelectedPro(currentUser as Professional);
+                    navigate('pro_profile', { replace: true });
+                }}
+                className={`flex flex-col items-center gap-1 ${['pro_profile', 'edit_profile'].includes(currentView) ? 'text-[#1b7cf5]' : 'text-gray-500 hover:text-gray-300'}`}
+            >
+                <UserIcon className="w-6 h-6" />
+                <span className="text-[10px] font-bold">Perfil</span>
+            </button>
+        </nav>
+    );
 
     const SplashScreen = () => (
         <div className="min-h-screen bg-[#101822] flex flex-col items-center justify-center p-4 relative overflow-hidden">
@@ -1118,24 +1175,7 @@ export default function App() {
                     </section>
                 </main>
 
-                <nav className="fixed bottom-0 left-0 right-0 bg-[#1f2937]/95 backdrop-blur-lg border-t border-gray-800 px-8 py-4 pb-8 flex justify-between items-center z-40">
-                    <button onClick={() => navigate('client_home', { replace: true })} className="flex flex-col items-center gap-1 text-[#1b7cf5]">
-                        <Home className="w-6 h-6" />
-                        <span className="text-[10px] font-bold">Início</span>
-                    </button>
-                    <button onClick={() => navigate('search', { replace: true })} className="flex flex-col items-center gap-1 text-gray-500">
-                        <Search className="w-6 h-6" />
-                        <span className="text-[10px] font-bold">Buscar</span>
-                    </button>
-                    <button onClick={() => navigate('messages', { replace: true })} className="flex flex-col items-center gap-1 text-gray-500">
-                        <MessageSquare className="w-6 h-6" />
-                        <span className="text-[10px] font-bold">Mensagens</span>
-                    </button>
-                    <button onClick={() => navigate('edit_profile', { replace: true })} className="flex flex-col items-center gap-1 text-gray-500">
-                        <UserIcon className="w-6 h-6" />
-                        <span className="text-[10px] font-bold">Perfil</span>
-                    </button>
-                </nav>
+                <ClientBottomNav />
             </div>
         );
     };
@@ -1236,24 +1276,7 @@ export default function App() {
                     </section>
                 </main>
 
-                <nav className="fixed bottom-0 left-0 right-0 bg-[#1f2937]/95 backdrop-blur-lg border-t border-gray-800 px-8 py-4 pb-8 flex justify-between items-center z-40">
-                    <button onClick={() => navigate('professional_home', { replace: true })} className="flex flex-col items-center gap-1 text-[#1b7cf5]">
-                        <Home className="w-6 h-6" />
-                        <span className="text-[10px] font-bold">Início</span>
-                    </button>
-                    <button onClick={() => navigate('manage_portfolio', { replace: true })} className="flex flex-col items-center gap-1 text-gray-500">
-                        <Grid className="w-6 h-6" />
-                        <span className="text-[10px] font-bold">Portfólio</span>
-                    </button>
-                    <button onClick={() => navigate('messages', { replace: true })} className="flex flex-col items-center gap-1 text-gray-500">
-                        <MessageSquare className="w-6 h-6" />
-                        <span className="text-[10px] font-bold">Mensagens</span>
-                    </button>
-                    <button onClick={() => { setSelectedPro(currentUser as Professional); navigate('pro_profile', { replace: true }); }} className="flex flex-col items-center gap-1 text-gray-500">
-                        <UserIcon className="w-6 h-6" />
-                        <span className="text-[10px] font-bold">Perfil</span>
-                    </button>
-                </nav>
+                <ProfessionalBottomNav />
             </div>
         );
     };
@@ -1672,20 +1695,7 @@ export default function App() {
                 )}
             </main>
 
-            <nav className="fixed bottom-0 left-0 right-0 bg-[#1f2937]/95 backdrop-blur-lg border-t border-gray-800 px-8 py-4 pb-8 flex justify-around items-center z-40">
-                <button onClick={() => navigate(userRole === 'client' ? 'client_home' : 'professional_home', { replace: true })} className="flex flex-col items-center gap-1 text-gray-500">
-                    <Home className="w-6 h-6" />
-                    <span className="text-[10px] font-bold">Início</span>
-                </button>
-                <button onClick={() => navigate('messages', { replace: true })} className="flex flex-col items-center gap-1 text-[#1b7cf5]">
-                    <MessageSquare className="w-6 h-6" />
-                    <span className="text-[10px] font-bold">Mensagens</span>
-                </button>
-                <button onClick={() => navigate('edit_profile', { replace: true })} className="flex flex-col items-center gap-1 text-gray-500">
-                    <UserIcon className="w-6 h-6" />
-                    <span className="text-[10px] font-bold">Perfil</span>
-                </button>
-            </nav>
+            {userRole === 'client' ? <ClientBottomNav /> : <ProfessionalBottomNav />}
         </div>
     );
 
@@ -2013,7 +2023,6 @@ export default function App() {
                                 <Mail className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-600 w-5 h-5" />
                             </div>
                         </div>
-
                         <button
                             type="submit"
                             disabled={isSaving}
@@ -2029,13 +2038,14 @@ export default function App() {
 
                         <button
                             type="button"
-                            onClick={() => navigate('role_selection')}
+                            onClick={() => logout()}
                             className="w-full bg-red-500/10 text-red-500 font-bold py-4 rounded-xl border border-red-500/20 flex items-center justify-center gap-2 active:scale-95 transition-all mt-4"
                         >
                             <LogOut className="w-5 h-5" /> Sair da Conta
                         </button>
                     </form>
                 </main>
+                {userRole === 'client' ? <ClientBottomNav /> : <ProfessionalBottomNav />}
             </div>
         );
     };
@@ -2076,7 +2086,7 @@ export default function App() {
                         name: profile.full_name || 'User',
                         avatar: profile.avatar_url || (profile.role === 'professional' ? 'https://picsum.photos/seed/pro-default/200/200' : 'https://picsum.photos/seed/user-default/200/200'),
                     } as any);
-                    navigate(profile.role === 'client' ? 'client_home' : 'professional_home', { reset: true });
+                    navigate(profile.role === 'client' ? 'client_home' : 'professional_home', { reset: true, ignoreGuards: true });
                 }
             } catch (err: any) {
                 console.error('Error completing profile:', err);
@@ -2308,6 +2318,7 @@ export default function App() {
                         <Check className="w-5 h-5" /> Salvar Alterações
                     </button>
                 </main>
+                <ProfessionalBottomNav />
             </div>
         );
     };
