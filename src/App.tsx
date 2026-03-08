@@ -36,7 +36,14 @@ import {
     ArrowLeftCircle,
     Check,
     Rocket,
-    Grid
+    Grid,
+    Droplets,
+    Zap,
+    Palette,
+    Hammer,
+    Wind,
+    Sparkles,
+    Sprout
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, ResponsiveContainer, Cell, Tooltip } from 'recharts';
 import { View, User, UserRole, Professional, Chat, Message as MessageType, PortfolioItem, Review } from './types';
@@ -989,14 +996,14 @@ export default function App() {
                         </div>
                         <div className="grid grid-cols-4 gap-4">
                             {[
-                                { icon: 'plumbing', label: 'Encanador' },
-                                { icon: 'electrical_services', label: 'Elétrica' },
-                                { icon: 'brush', label: 'Pintura' },
-                                { icon: 'format_paint', label: 'Reformas' },
-                                { icon: 'ac_unit', label: 'Ar Cond.' },
-                                { icon: 'cleaning_services', label: 'Limpeza' },
-                                { icon: 'grass', label: 'Jardim' },
-                                { icon: 'more_horiz', label: 'Outros' }
+                                { icon: <Droplets className="w-6 h-6" />, label: 'Encanador' },
+                                { icon: <Zap className="w-6 h-6" />, label: 'Elétrica' },
+                                { icon: <Palette className="w-6 h-6" />, label: 'Pintura' },
+                                { icon: <Hammer className="w-6 h-6" />, label: 'Reformas' },
+                                { icon: <Wind className="w-6 h-6" />, label: 'Ar Cond.' },
+                                { icon: <Sparkles className="w-6 h-6" />, label: 'Limpeza' },
+                                { icon: <Sprout className="w-6 h-6" />, label: 'Jardim' },
+                                { icon: <Grid className="w-6 h-6" />, label: 'Outros' }
                             ].map((cat, i) => (
                                 <div
                                     key={i}
@@ -1004,7 +1011,7 @@ export default function App() {
                                     className="flex flex-col items-center gap-2 group cursor-pointer active:scale-90 transition-all"
                                 >
                                     <div className="w-14 h-14 rounded-2xl bg-[#111827] border border-gray-800 flex items-center justify-center group-hover:border-[#1b7cf5] transition-all">
-                                        <div className="text-[#1b7cf5]"><Grid className="w-6 h-6" /></div>
+                                        <div className="text-[#1b7cf5]">{cat.icon}</div>
                                     </div>
                                     <span className="text-[10px] font-medium text-gray-400 text-center">{cat.label}</span>
                                 </div>
