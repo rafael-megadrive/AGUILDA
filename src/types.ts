@@ -83,4 +83,6 @@ export type View =
   | 'complete_profile'
   | 'client_profile'
   | 'professional_reviews'
-  | 'review_submission';
+  | 'review_submission'
+  | 'forgot_password'
+  | 'reset_password';

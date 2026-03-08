@@ -131,6 +131,8 @@ export default function App() {
     const [reviewComment, setReviewComment] = useState('');
     const [isSubmittingReview, setIsSubmittingReview] = useState(false);
     const [professionals, setProfessionals] = useState<Professional[]>([]);
+    const [workerTypeFilter, setWorkerTypeFilter] = useState<'all' | 'professional' | 'autonomous'>('all');
+    const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
 
     // Initialize reviews from database
     const [reviews, setReviews] = useState<Review[]>([]);
@@ -201,8 +203,13 @@ export default function App() {
         });
 
         // Listen for changes
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-            handleAuthChange(session);
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+            console.log('[Auth] Event received:', event);
+            if (event === 'PASSWORD_RECOVERY') {
+                setCurrentView('reset_password');
+            } else {
+                handleAuthChange(session);
+            }
         });
 
         return () => subscription.unsubscribe();
@@ -226,6 +233,7 @@ export default function App() {
                     reviewsCount: p.reviews_count || 0,
                     completedServices: p.completed_services || 0,
                     yearsExp: p.years_exp || 0,
+                    workerType: p.worker_type || 'professional',
                     portfolio: p.portfolio || []
                 }));
                 setProfessionals(formattedPros);
@@ -697,7 +705,13 @@ export default function App() {
                                 </div>
                             </div>
                             <div className="flex justify-end">
-                                <button type="button" className="text-sm font-semibold text-[#1b7cf5] hover:underline">Esqueceu a senha?</button>
+                                <button
+                                    type="button"
+                                    onClick={() => navigate('forgot_password')}
+                                    className="text-sm font-semibold text-[#1b7cf5] hover:underline"
+                                >
+                                    Esqueceu a senha?
+                                </button>
                             </div>
 
                             <button
@@ -740,6 +754,7 @@ export default function App() {
         const [email, setEmail] = useState('');
         const [password, setPassword] = useState('');
         const [specialty, setSpecialty] = useState('Eletricista');
+        const [workerType, setWorkerType] = useState<'professional' | 'autonomous'>('professional');
         const [error, setError] = useState<string | null>(null);
         const [isRegistering, setIsRegistering] = useState(false);
         const [showConfirmationMsg, setShowConfirmationMsg] = useState(false);
@@ -758,6 +773,7 @@ export default function App() {
                             name,
                             role: userRole,
                             specialty: userRole === 'professional' ? specialty : undefined,
+                            worker_type: userRole === 'professional' ? workerType : undefined,
                         }
                     }
                 });
@@ -823,25 +839,46 @@ export default function App() {
                                 />
                             </div>
                             {userRole === 'professional' && (
-                                <div>
-                                    <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 ml-1">Especialidade / Profissão</label>
-                                    <div className="relative">
-                                        <Briefcase className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 w-5 h-5" />
-                                        <select
-                                            value={specialty}
-                                            onChange={(e) => setSpecialty(e.target.value)}
-                                            className="w-full bg-[#111827] border border-gray-700 rounded-xl py-3.5 pl-12 pr-4 text-white focus:ring-2 focus:ring-[#1b7cf5] appearance-none cursor-pointer"
-                                        >
-                                            <option>Eletricista</option>
-                                            <option>Encanador</option>
-                                            <option>Pintor</option>
-                                            <option>Designer</option>
-                                            <option>Diarista</option>
-                                            <option>Manutenção</option>
-                                            <option>Outros</option>
-                                        </select>
+                                <>
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 ml-1">Especialidade / Profissão</label>
+                                        <div className="relative">
+                                            <Briefcase className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 w-5 h-5" />
+                                            <select
+                                                value={specialty}
+                                                onChange={(e) => setSpecialty(e.target.value)}
+                                                className="w-full bg-[#111827] border border-gray-700 rounded-xl py-3.5 pl-12 pr-4 text-white focus:ring-2 focus:ring-[#1b7cf5] appearance-none cursor-pointer"
+                                            >
+                                                <option>Eletricista</option>
+                                                <option>Encanador</option>
+                                                <option>Pintor</option>
+                                                <option>Designer</option>
+                                                <option>Diarista</option>
+                                                <option>Manutenção</option>
+                                                <option>Outros</option>
+                                            </select>
+                                        </div>
                                     </div>
-                                </div>
+                                    <div className="mt-4">
+                                        <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 ml-1">Tipo de Atuação</label>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <button
+                                                type="button"
+                                                onClick={() => setWorkerType('professional')}
+                                                className={`py-3 rounded-xl border text-xs font-bold transition-all ${workerType === 'professional' ? 'bg-[#1b7cf5] border-[#1b7cf5] text-white' : 'bg-[#111827] border-gray-700 text-gray-400'}`}
+                                            >
+                                                Profissional / Empresa
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setWorkerType('autonomous')}
+                                                className={`py-3 rounded-xl border text-xs font-bold transition-all ${workerType === 'autonomous' ? 'bg-emerald-500 border-emerald-500 text-white' : 'bg-[#111827] border-gray-700 text-gray-400'}`}
+                                            >
+                                                Autônomo
+                                            </button>
+                                        </div>
+                                    </div>
+                                </>
                             )}
                             <div>
                                 <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 ml-1">Senha</label>
@@ -867,6 +904,13 @@ export default function App() {
                                 )}
                             </button>
                         </form>
+                    </div>
+
+                    <div className="bg-[#111827]/50 p-6 text-center border-t border-gray-800">
+                        <p className="text-gray-400 text-sm">
+                            Já tem uma conta?
+                            <button onClick={() => navigate('login')} className="font-bold text-[#1b7cf5] ml-1 hover:underline">Entre aqui</button>
+                        </p>
                     </div>
                 </motion.div>
             </div>
@@ -1632,6 +1676,7 @@ export default function App() {
         const [email, setEmail] = useState(currentUser.email);
         const [bio, setBio] = useState((currentUser as Professional).bio || '');
         const [specialty, setSpecialty] = useState((currentUser as Professional).specialty || '');
+        const [workerType, setWorkerType] = useState((currentUser as Professional).workerType || 'professional');
         const [avatar, setAvatar] = useState(currentUser.avatar || '');
         const [isSaving, setIsSaving] = useState(false);
         const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1648,6 +1693,7 @@ export default function App() {
                 email,
                 bio,
                 specialty,
+                worker_type: userRole === 'professional' ? workerType : null,
                 avatar_url: avatar,
                 updated_at: new Date().toISOString(),
             };
@@ -1667,6 +1713,7 @@ export default function App() {
                     email,
                     bio,
                     specialty,
+                    workerType: userRole === 'professional' ? workerType : null,
                     avatar
                 }));
                 navigate(userRole === 'professional' ? 'professional_home' : 'client_home');
@@ -1808,6 +1855,25 @@ export default function App() {
                                         className="w-full bg-[#1f2937] border-none rounded-3xl p-6 text-white focus:ring-2 focus:ring-[#1b7cf5] resize-none"
                                     />
                                 </div>
+                                <div className="space-y-4 pt-4">
+                                    <label className="text-sm font-semibold text-gray-400 ml-1">Tipo de Atuação</label>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <button
+                                            type="button"
+                                            onClick={() => setWorkerType('professional')}
+                                            className={`py-4 rounded-xl border font-bold transition-all ${workerType === 'professional' ? 'bg-[#1b7cf5] border-[#1b7cf5] text-white shadow-lg shadow-[#1b7cf5]/20' : 'bg-[#1f2937] border-gray-800 text-gray-400'}`}
+                                        >
+                                            Profissional
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setWorkerType('autonomous')}
+                                            className={`py-4 rounded-xl border font-bold transition-all ${workerType === 'autonomous' ? 'bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'bg-[#1f2937] border-gray-700 text-gray-400'}`}
+                                        >
+                                            Autônomo
+                                        </button>
+                                    </div>
+                                </div>
                             </>
                         )}
 
@@ -1854,6 +1920,7 @@ export default function App() {
         console.log('[App] Rendering CompleteProfileScreen');
         const [name, setName] = useState('');
         const [role, setRole] = useState<UserRole>(userRole || 'client');
+        const [workerType, setWorkerType] = useState<'professional' | 'autonomous'>('professional');
         const [isSubmitting, setIsSubmitting] = useState(false);
         const [error, setError] = useState<string | null>(null);
 
@@ -1870,6 +1937,7 @@ export default function App() {
                         id: session.user.id,
                         full_name: name,
                         role: role,
+                        worker_type: role === 'professional' ? workerType : null,
                         email: session.user.email
                     })
                     .select()
@@ -1931,6 +1999,28 @@ export default function App() {
                                 </button>
                             </div>
                         </div>
+
+                        {role === 'professional' && (
+                            <div className="space-y-4">
+                                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest ml-1">Tipo de Atuação</label>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <button
+                                        type="button"
+                                        onClick={() => setWorkerType('professional')}
+                                        className={`py-4 rounded-xl border font-bold transition-all ${workerType === 'professional' ? 'bg-[#1b7cf5] border-[#1b7cf5] text-white shadow-lg shadow-[#1b7cf5]/20' : 'bg-[#111827] border-gray-700 text-gray-400 hover:border-gray-600'}`}
+                                    >
+                                        Empresa
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setWorkerType('autonomous')}
+                                        className={`py-4 rounded-xl border font-bold transition-all ${workerType === 'autonomous' ? 'bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'bg-[#111827] border-gray-700 text-gray-400 hover:border-gray-600'}`}
+                                    >
+                                        Autônomo
+                                    </button>
+                                </div>
+                            </div>
+                        )}
 
                         <div className="space-y-2">
                             <label className="text-xs font-bold text-gray-500 uppercase tracking-widest ml-1">Seu Nome Completo</label>
@@ -2099,10 +2189,14 @@ export default function App() {
     };
 
     const SearchScreen = () => {
-        const filteredPros = MOCK_PROS.filter(pro =>
-            pro.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            pro.specialty.toLowerCase().includes(searchQuery.toLowerCase())
-        );
+        const filteredPros = (professionals.length > 0 ? professionals : MOCK_PROS).filter(pro => {
+            const matchesSearch = pro.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                pro.specialty.toLowerCase().includes(searchQuery.toLowerCase());
+
+            const matchesWorkerType = workerTypeFilter === 'all' || pro.workerType === workerTypeFilter;
+
+            return matchesSearch && matchesWorkerType;
+        });
 
         return (
             <div className="min-h-screen bg-[#101822] pb-24">
@@ -2122,8 +2216,11 @@ export default function App() {
                         />
                     </div>
                     <div className="flex gap-2 mt-4 overflow-x-auto no-scrollbar">
-                        <button className="whitespace-nowrap px-5 py-2 bg-[#1b7cf5] text-white rounded-full text-xs font-bold flex items-center gap-2">
-                            <Filter className="w-3 h-3" /> Filtros
+                        <button
+                            onClick={() => setIsFilterModalOpen(true)}
+                            className={`whitespace-nowrap px-5 py-2 rounded-full text-xs font-bold flex items-center gap-2 transition-all ${workerTypeFilter !== 'all' ? 'bg-[#1b7cf5] text-white' : 'bg-[#111827] text-gray-400 border border-gray-800'}`}
+                        >
+                            <Filter className="w-3 h-3" /> {workerTypeFilter === 'all' ? 'Filtros' : workerTypeFilter === 'professional' ? 'Profissional' : 'Autônomo'}
                         </button>
                         {['Elétrica', 'Limpeza', 'Pintura', 'Design'].map(cat => (
                             <button
@@ -2588,6 +2685,69 @@ export default function App() {
         );
     };
 
+    const FilterModal = () => (
+        <AnimatePresence>
+            <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-end justify-center"
+                onClick={() => setIsFilterModalOpen(false)}
+            >
+                <motion.div
+                    initial={{ y: "100%" }}
+                    animate={{ y: 0 }}
+                    exit={{ y: "100%" }}
+                    transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                    className="w-full bg-[#1f2937] rounded-t-[40px] p-8 pb-12 max-w-lg border-t border-white/10"
+                    onClick={e => e.stopPropagation()}
+                >
+                    <div className="w-12 h-1.5 bg-gray-800 rounded-full mx-auto mb-8" />
+                    <h2 className="text-2xl font-bold text-white mb-2 text-center">Filtros de Busca</h2>
+                    <p className="text-gray-400 text-center mb-10">Refine os resultados para encontrar o que precisa.</p>
+
+                    <div className="space-y-6 mb-10">
+                        <div className="space-y-4">
+                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest ml-1">Tipo de Prestador</label>
+                            <div className="flex flex-col gap-3">
+                                {[
+                                    { id: 'all', label: 'Todos os tipos', icon: <Grid className="w-4 h-4" /> },
+                                    { id: 'professional', label: 'Empresa / Profissional', icon: <Briefcase className="w-4 h-4" /> },
+                                    { id: 'autonomous', label: 'Autônomo Freelance', icon: <UserIcon className="w-4 h-4" /> }
+                                ].map((type) => (
+                                    <button
+                                        key={type.id}
+                                        onClick={() => {
+                                            setWorkerTypeFilter(type.id as any);
+                                            setIsFilterModalOpen(false);
+                                        }}
+                                        className={`flex items-center gap-4 p-4 rounded-2xl border transition-all ${workerTypeFilter === type.id
+                                            ? 'bg-[#1b7cf5] border-[#1b7cf5] text-white shadow-lg shadow-[#1b7cf5]/20'
+                                            : 'bg-[#111827] border-gray-800 text-gray-400 hover:border-gray-700'
+                                            }`}
+                                    >
+                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${workerTypeFilter === type.id ? 'bg-white/20' : 'bg-[#1f2937]'}`}>
+                                            {type.icon}
+                                        </div>
+                                        <span className="font-bold">{type.label}</span>
+                                        {workerTypeFilter === type.id && <CheckCircle2 className="w-5 h-5 ml-auto" />}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    <button
+                        onClick={() => setIsFilterModalOpen(false)}
+                        className="w-full bg-[#1f2937] text-white font-bold py-4 rounded-2xl border border-gray-700 active:scale-95 transition-all"
+                    >
+                        Fechar
+                    </button>
+                </motion.div>
+            </motion.div>
+        </AnimatePresence>
+    );
+
     const ClientProfileScreen = () => {
         const chat = activeChat || { participant: selectedPro || MOCK_PROS[0] };
         return (
@@ -2761,6 +2921,146 @@ export default function App() {
         </AnimatePresence>
     );
 
+    const ForgotPasswordScreen = () => {
+        const [email, setEmail] = useState('');
+        const [isSubmitting, setIsSubmitting] = useState(false);
+        const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+
+        const handleResetRequest = async (e: React.FormEvent) => {
+            e.preventDefault();
+            setIsSubmitting(true);
+            setMessage(null);
+
+            try {
+                const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                    redirectTo: window.location.origin,
+                });
+                if (error) throw error;
+                setMessage({ type: 'success', text: 'E-mail de recuperação enviado! Verifique sua caixa de entrada.' });
+            } catch (err: any) {
+                setMessage({ type: 'error', text: err.message || 'Erro ao enviar e-mail.' });
+            } finally {
+                setIsSubmitting(false);
+            }
+        };
+
+        return (
+            <div className="min-h-screen bg-[#101822] flex items-center justify-center p-4">
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="w-full max-w-md bg-[#1f2937] rounded-3xl p-8 border border-gray-800 shadow-2xl"
+                >
+                    <button onClick={() => navigate('login', true)} className="mb-6 text-gray-400 hover:text-white flex items-center gap-2">
+                        <ArrowLeft className="w-5 h-5" /> Voltar
+                    </button>
+                    <h2 className="text-3xl font-bold text-white mb-2">Recuperar Senha</h2>
+                    <p className="text-gray-400 mb-8">Digite seu e-mail para receber as instruções.</p>
+
+                    <form onSubmit={handleResetRequest} className="space-y-6">
+                        {message && (
+                            <div className={`${message.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' : 'bg-red-500/10 border-red-500/20 text-red-500'} text-xs p-4 rounded-xl flex items-center gap-3`}>
+                                {message.type === 'success' ? <CheckCircle2 className="w-5 h-5 flex-shrink-0" /> : <Settings className="w-5 h-5 flex-shrink-0" />}
+                                <p>{message.text}</p>
+                            </div>
+                        )}
+                        <div>
+                            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 ml-1">E-mail</label>
+                            <input
+                                type="email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                placeholder="seu@email.com"
+                                className="w-full bg-[#111827] border border-gray-700 rounded-xl py-3.5 px-4 text-white focus:ring-2 focus:ring-[#1b7cf5]"
+                                required
+                            />
+                        </div>
+
+                        <button
+                            type="submit"
+                            disabled={isSubmitting}
+                            className="w-full bg-[#1b7cf5] hover:bg-[#1b7cf5]/90 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 disabled:opacity-50"
+                        >
+                            {isSubmitting ? (
+                                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            ) : (
+                                'Enviar Link de Recuperação'
+                            )}
+                        </button>
+                    </form>
+                </motion.div>
+            </div>
+        );
+    };
+
+    const ResetPasswordScreen = () => {
+        const [password, setPassword] = useState('');
+        const [isSubmitting, setIsSubmitting] = useState(false);
+        const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+
+        const handlePasswordUpdate = async (e: React.FormEvent) => {
+            e.preventDefault();
+            setIsSubmitting(true);
+            setMessage(null);
+
+            try {
+                const { error } = await supabase.auth.updateUser({ password });
+                if (error) throw error;
+                setMessage({ type: 'success', text: 'Senha alterada com sucesso! Redirecionando...' });
+                setTimeout(() => navigate('login', true), 2000);
+            } catch (err: any) {
+                setMessage({ type: 'error', text: err.message || 'Erro ao alterar senha.' });
+            } finally {
+                setIsSubmitting(false);
+            }
+        };
+
+        return (
+            <div className="min-h-screen bg-[#101822] flex items-center justify-center p-4">
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="w-full max-w-md bg-[#1f2937] rounded-3xl p-8 border border-gray-800 shadow-2xl"
+                >
+                    <h2 className="text-3xl font-bold text-white mb-2">Nova Senha</h2>
+                    <p className="text-gray-400 mb-8">Defina sua nova credencial de acesso.</p>
+
+                    <form onSubmit={handlePasswordUpdate} className="space-y-6">
+                        {message && (
+                            <div className={`${message.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' : 'bg-red-500/10 border-red-500/20 text-red-500'} text-xs p-4 rounded-xl flex items-center gap-3`}>
+                                {message.type === 'success' ? <CheckCircle2 className="w-5 h-5 flex-shrink-0" /> : <Settings className="w-5 h-5 flex-shrink-0" />}
+                                <p>{message.text}</p>
+                            </div>
+                        )}
+                        <div>
+                            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 ml-1">Nova Senha</label>
+                            <input
+                                type="password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                placeholder="••••••••"
+                                className="w-full bg-[#111827] border border-gray-700 rounded-xl py-3.5 px-4 text-white focus:ring-2 focus:ring-[#1b7cf5]"
+                                required
+                            />
+                        </div>
+
+                        <button
+                            type="submit"
+                            disabled={isSubmitting}
+                            className="w-full bg-[#1b7cf5] hover:bg-[#1b7cf5]/90 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 disabled:opacity-50"
+                        >
+                            {isSubmitting ? (
+                                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            ) : (
+                                'Redefinir Senha'
+                            )}
+                        </button>
+                    </form>
+                </motion.div>
+            </div>
+        );
+    };
+
     const renderView = () => {
         console.log('[App] renderView currentView:', currentView, 'Session:', !!session);
         switch (currentView) {
@@ -2782,6 +3082,8 @@ export default function App() {
             case 'client_profile': return <ClientProfileScreen />;
             case 'professional_reviews': return <ProfessionalReviewsScreen />;
             case 'review_submission': return <ReviewSubmissionScreen />;
+            case 'forgot_password': return <ForgotPasswordScreen />;
+            case 'reset_password': return <ResetPasswordScreen />;
             default: return <LoginScreen />;
         }
     };
@@ -2829,6 +3131,7 @@ export default function App() {
             )}
 
             {isReviewModalOpen && <ReviewModal />}
+            {isFilterModalOpen && <FilterModal />}
         </div>
     );
 }
