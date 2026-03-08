@@ -1101,13 +1101,6 @@ export default function App() {
                                 </div>
                             </div>
                         </div>
-                        <button
-                            onClick={() => navigate('notifications')}
-                            className="w-10 h-10 rounded-full bg-[#111827] border border-gray-700 flex items-center justify-center relative active:scale-90 transition-all"
-                        >
-                            <Bell className={`${unreadNotificationsCount > 0 ? 'text-[#1b7cf5]' : 'text-gray-400'} w-5 h-5`} />
-                            {unreadNotificationsCount > 0 && <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-[#1b7cf5] rounded-full"></span>}
-                        </button>
                     </div>
                     <form onSubmit={handleSearch} className="relative">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 w-5 h-5" />
@@ -1225,18 +1218,6 @@ export default function App() {
                                 </div>
                             </div>
                         </div>
-                        <div className="flex gap-3">
-                            <button
-                                onClick={() => navigate('notifications')}
-                                className="w-10 h-10 rounded-full bg-[#111827] border border-gray-700 flex items-center justify-center relative"
-                            >
-                                <Bell className={`${unreadNotificationsCount > 0 ? 'text-[#1b7cf5]' : 'text-gray-400'} w-5 h-5`} />
-                                {unreadNotificationsCount > 0 && <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-[#1b7cf5] rounded-full"></span>}
-                            </button>
-                            <button onClick={() => navigate('edit_profile')} className="w-10 h-10 rounded-full bg-[#111827] border border-gray-700 flex items-center justify-center">
-                                <UserIcon className="text-gray-400 w-5 h-5" />
-                            </button>
-                        </div>
                     </div>
                 </header>
 
@@ -1300,7 +1281,7 @@ export default function App() {
                 </main>
 
                 <ProfessionalBottomNav />
-            </div>
+            </div >
         );
     };
 
