@@ -133,7 +133,6 @@ export default function App() {
     const [activeChatId, setActiveChatId] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [viewerImage, setViewerImage] = useState<string | null>(null);
-    const [appBackground, setAppBackground] = useState<string>('src/bg_connection.png');
     const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
     const [reviewComment, setReviewComment] = useState('');
     const [isSubmittingReview, setIsSubmittingReview] = useState(false);
@@ -1687,7 +1686,6 @@ export default function App() {
         const [avatar, setAvatar] = useState(currentUser.avatar || '');
         const [isSaving, setIsSaving] = useState(false);
         const fileInputRef = useRef<HTMLInputElement>(null);
-        const backgroundInputRef = useRef<HTMLInputElement>(null);
 
         const handleSave = async (e: React.FormEvent) => {
             e.preventDefault();
@@ -1739,16 +1737,6 @@ export default function App() {
             }
         };
 
-        const handleBackgroundChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-            const file = e.target.files?.[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onloadend = () => {
-                    setAppBackground(reader.result as string);
-                };
-                reader.readAsDataURL(file);
-            }
-        };
 
         return (
             <div className="min-h-screen bg-[#101822] pb-24">
@@ -1798,30 +1786,6 @@ export default function App() {
                             </div>
                         </div>
 
-                        <div className="space-y-4">
-                            <label className="text-sm font-semibold text-gray-400 ml-1">Fundo do Aplicativo</label>
-                            <div
-                                className="w-full h-32 rounded-2xl bg-[#1f2937] border-2 border-dashed border-gray-800 flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-[#1b7cf5] transition-all overflow-hidden relative"
-                                onClick={() => backgroundInputRef.current?.click()}
-                            >
-                                {appBackground ? (
-                                    <img src={appBackground} className="w-full h-full object-cover opacity-50" alt="Background Preview" />
-                                ) : (
-                                    <Plus className="text-[#1b7cf5] w-6 h-6" />
-                                )}
-                                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/20">
-                                    <Plus className="text-white w-6 h-6 mb-1" />
-                                    <span className="text-[10px] text-white font-bold uppercase tracking-wider">Trocar Fundo</span>
-                                </div>
-                            </div>
-                            <input
-                                type="file"
-                                ref={backgroundInputRef}
-                                className="hidden"
-                                accept="image/*"
-                                onChange={handleBackgroundChange}
-                            />
-                        </div>
 
                         <div className="space-y-2">
                             <label className="text-sm font-semibold text-gray-400 ml-1">{userRole === 'professional' ? 'Endereço Comercial / Atendimento' : 'Sua Localização'}</label>
@@ -3097,15 +3061,13 @@ export default function App() {
 
     return (
         <div className="relative min-h-screen bg-[#101822] text-white selection:bg-[#1b7cf5]/30">
-            {appBackground && (
-                <div
-                    className="fixed inset-0 z-0 bg-cover bg-center transition-all duration-700 pointer-events-none"
-                    style={{
-                        backgroundImage: `url(${appBackground})`,
-                        filter: 'brightness(0.3) contrast(1.1) saturate(1.2)'
-                    }}
-                />
-            )}
+            <div
+                className="fixed inset-0 z-0 bg-cover bg-center transition-all duration-700 pointer-events-none"
+                style={{
+                    backgroundImage: `url('src/bg_connection.png')`,
+                    filter: 'brightness(0.3) contrast(1.1) saturate(1.2)'
+                }}
+            />
             <div className="relative z-10 min-h-screen">
                 <AnimatePresence mode="wait">
                     <motion.div
