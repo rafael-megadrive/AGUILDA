@@ -178,20 +178,20 @@ export default function App() {
                             name: profile.full_name || 'User',
                             avatar: profile.avatar_url || (profile.role === 'professional' ? 'https://picsum.photos/seed/pro-default/200/200' : 'https://picsum.photos/seed/user-default/200/200'),
                         } as any);
-                        setCurrentView(profile.role === 'client' ? 'client_home' : 'professional_home');
+                        navigate(profile.role === 'client' ? 'client_home' : 'professional_home', true);
                     } else {
                         console.warn('[Auth] No profile found - directing to complete_profile');
-                        setCurrentView('complete_profile');
+                        navigate('complete_profile', true);
                     }
                 } catch (err) {
                     console.error('[Auth] Error fetching profile:', err);
                     // On error but with session, better to try complete_profile than role_selection
-                    setCurrentView('complete_profile');
+                    navigate('complete_profile', true);
                 }
             } else {
                 console.log('[Auth] No session - resetting to role_selection');
                 setUserRole('client');
-                setCurrentView('role_selection');
+                navigate('role_selection', true);
                 setCurrentUser({
                     id: 'c1',
                     name: 'Visitante',
@@ -215,7 +215,7 @@ export default function App() {
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
             console.log('[Auth] Event received:', event);
             if (event === 'PASSWORD_RECOVERY') {
-                setCurrentView('reset_password');
+                navigate('reset_password', true);
             } else {
                 handleAuthChange(session);
             }
@@ -497,8 +497,10 @@ export default function App() {
             return;
         }
 
+        if (viewHistory[viewHistory.length - 1] === view) return;
+
         if (replace) {
-            setViewHistory(prev => [...prev.slice(0, -1), view]);
+            setViewHistory([view]);
         } else {
             setViewHistory(prev => [...prev, view]);
         }
@@ -2057,7 +2059,7 @@ export default function App() {
                         name: profile.full_name || 'User',
                         avatar: profile.avatar_url || (profile.role === 'professional' ? 'https://picsum.photos/seed/pro-default/200/200' : 'https://picsum.photos/seed/user-default/200/200'),
                     } as any);
-                    setCurrentView(profile.role === 'client' ? 'client_home' : 'professional_home');
+                    navigate(profile.role === 'client' ? 'client_home' : 'professional_home', true);
                 }
             } catch (err: any) {
                 console.error('Error completing profile:', err);
