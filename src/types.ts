@@ -80,6 +80,7 @@ export type View =
   | 'edit_schedule'
   | 'manage_portfolio'
   | 'booking'
+  | 'complete_profile'
   | 'client_profile'
   | 'professional_reviews'
   | 'review_submission';

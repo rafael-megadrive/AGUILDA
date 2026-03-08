@@ -39,7 +39,7 @@ import {
     Grid
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, ResponsiveContainer, Cell, Tooltip } from 'recharts';
-import { View, User, Professional, Chat, Message as MessageType, PortfolioItem, Review } from './types';
+import { View, User, UserRole, Professional, Chat, Message as MessageType, PortfolioItem, Review } from './types';
 import logo from './logo.png';
 import { supabase } from './lib/supabase';
 import { Session } from '@supabase/supabase-js';
@@ -143,49 +143,75 @@ export default function App() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        console.log('[Auth] Initializing auth...');
         // Get initial session
-        supabase.auth.getSession().then(async ({ data: { session } }) => {
+        supabase.auth.getSession().then(async ({ data: { session }, error }) => {
+            console.log('[Auth] getSession result:', { hasSession: !!session, error });
             setSession(session);
             if (session?.user) {
-                const { data: profile } = await supabase
-                    .from('profiles')
-                    .select('*')
-                    .eq('id', session.user.id)
-                    .single();
+                try {
+                    console.log('[Auth] Fetching profile for user:', session.user.id);
+                    const { data: profile, error: profileError } = await supabase
+                        .from('profiles')
+                        .select('*')
+                        .eq('id', session.user.id)
+                        .single();
 
-                if (profile) {
-                    setUserRole(profile.role);
-                    setCurrentView(profile.role === 'client' ? 'client_home' : 'professional_home');
-                    setCurrentUser({
-                        ...profile,
-                        name: profile.full_name || 'User',
-                        avatar: profile.avatar_url || (profile.role === 'professional' ? 'https://picsum.photos/seed/pro-default/200/200' : 'https://picsum.photos/seed/user-default/200/200'),
-                    } as any);
+                    console.log('[Auth] Profile fetch result:', { profile, error: profileError });
+
+                    if (profile) {
+                        setUserRole(profile.role);
+                        setCurrentView(profile.role === 'client' ? 'client_home' : 'professional_home');
+                        setCurrentUser({
+                            ...profile,
+                            name: profile.full_name || 'User',
+                            avatar: profile.avatar_url || (profile.role === 'professional' ? 'https://picsum.photos/seed/pro-default/200/200' : 'https://picsum.photos/seed/user-default/200/200'),
+                        } as any);
+                    } else {
+                        console.warn('[Auth] No profile found for authenticated user');
+                        setCurrentView('complete_profile');
+                    }
+                } catch (err) {
+                    console.error('[Auth] Error initializing session:', err);
+                    setCurrentView('role_selection');
                 }
             }
+            console.log('[Auth] Setting loading to false');
             setLoading(false);
         });
 
         // Listen for auth changes
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+            console.log('[Auth] onAuthStateChange event:', event, 'Has session:', !!session);
             setSession(session);
             if (session?.user) {
-                const { data: profile } = await supabase
-                    .from('profiles')
-                    .select('*')
-                    .eq('id', session.user.id)
-                    .single();
+                try {
+                    const { data: profile, error: profileError } = await supabase
+                        .from('profiles')
+                        .select('*')
+                        .eq('id', session.user.id)
+                        .single();
 
-                if (profile) {
-                    setUserRole(profile.role);
-                    setCurrentView(profile.role === 'client' ? 'client_home' : 'professional_home');
-                    setCurrentUser({
-                        ...profile,
-                        name: profile.full_name || 'User',
-                        avatar: profile.avatar_url || (profile.role === 'professional' ? 'https://picsum.photos/seed/pro-default/200/200' : 'https://picsum.photos/seed/user-default/200/200'),
-                    } as any);
+                    console.log('[Auth] onAuthStateChange profile result:', { profile, error: profileError });
+
+                    if (profile) {
+                        setUserRole(profile.role);
+                        setCurrentView(profile.role === 'client' ? 'client_home' : 'professional_home');
+                        setCurrentUser({
+                            ...profile,
+                            name: profile.full_name || 'User',
+                            avatar: profile.avatar_url || (profile.role === 'professional' ? 'https://picsum.photos/seed/pro-default/200/200' : 'https://picsum.photos/seed/user-default/200/200'),
+                        } as any);
+                    } else {
+                        // User exists in Auth but not in Profiles
+                        console.warn('[Auth] Redirecting to profile completion due to missing profile');
+                        setCurrentView('complete_profile');
+                    }
+                } catch (err) {
+                    console.error('[Auth] Error in onAuthStateChange:', err);
                 }
             } else {
+                console.log('[Auth] No user session found, resetting to role_selection');
                 setUserRole('client');
                 setCurrentView('role_selection');
                 setCurrentUser({
@@ -614,14 +640,18 @@ export default function App() {
             setError(null);
             setIsLoggingIn(true);
             try {
+                console.log('[Login] Attempting sign-in...');
                 const { error: loginError } = await supabase.auth.signInWithPassword({
                     email,
                     password,
                 });
+                console.log('[Login] Sign-in result:', { error: loginError });
                 if (loginError) throw loginError;
             } catch (err: any) {
+                console.error('[Login] Caught error:', err);
                 setError(err.message || 'Erro ao entrar. Verifique suas credenciais.');
             } finally {
+                console.log('[Login] Login process finished');
                 setIsLoggingIn(false);
             }
         };
@@ -1840,6 +1870,124 @@ export default function App() {
         );
     };
 
+    const CompleteProfileScreen = () => {
+        const [name, setName] = useState('');
+        const [role, setRole] = useState<UserRole>(userRole || 'client');
+        const [isSubmitting, setIsSubmitting] = useState(false);
+        const [error, setError] = useState<string | null>(null);
+
+        const handleComplete = async (e: React.FormEvent) => {
+            e.preventDefault();
+            if (!session?.user) return;
+            setIsSubmitting(true);
+            setError(null);
+
+            try {
+                const { data: profile, error: insertError } = await supabase
+                    .from('profiles')
+                    .insert({
+                        id: session.user.id,
+                        full_name: name,
+                        role: role,
+                        email: session.user.email
+                    })
+                    .select()
+                    .single();
+
+                if (insertError) throw insertError;
+
+                if (profile) {
+                    setUserRole(profile.role);
+                    setCurrentUser({
+                        ...profile,
+                        name: profile.full_name || 'User',
+                        avatar: profile.avatar_url || (profile.role === 'professional' ? 'https://picsum.photos/seed/pro-default/200/200' : 'https://picsum.photos/seed/user-default/200/200'),
+                    } as any);
+                    setCurrentView(profile.role === 'client' ? 'client_home' : 'professional_home');
+                }
+            } catch (err: any) {
+                console.error('Error completing profile:', err);
+                setError(err.message || 'Erro ao salvar perfil.');
+            } finally {
+                setIsSubmitting(false);
+            }
+        };
+
+        return (
+            <div className="min-h-screen bg-[#101822] flex items-center justify-center p-4">
+                <div className="w-full max-w-md bg-[#1f2937] rounded-3xl p-8 border border-gray-800 shadow-2xl">
+                    <div className="text-center mb-8">
+                        <div className="w-16 h-16 bg-[#1b7cf5]/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                            <UserIcon className="w-8 h-8 text-[#1b7cf5]" />
+                        </div>
+                        <h1 className="text-2xl font-bold text-white">Complete seu Perfil</h1>
+                        <p className="text-gray-400 text-sm mt-2">Só mais um passo para começar</p>
+                    </div>
+
+                    <form onSubmit={handleComplete} className="space-y-6">
+                        {error && (
+                            <div className="bg-red-500/10 border border-red-500/20 text-red-500 text-xs p-3 rounded-xl">
+                                {error}
+                            </div>
+                        )}
+
+                        <div className="space-y-4">
+                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest ml-1">Como deseja usar o App?</label>
+                            <div className="grid grid-cols-2 gap-4">
+                                <button
+                                    type="button"
+                                    onClick={() => setRole('client')}
+                                    className={`py-4 rounded-xl border font-bold transition-all ${role === 'client' ? 'bg-[#1b7cf5] border-[#1b7cf5] text-white shadow-lg shadow-[#1b7cf5]/20' : 'bg-[#111827] border-gray-700 text-gray-400 hover:border-gray-600'}`}
+                                >
+                                    Cliente
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setRole('professional')}
+                                    className={`py-4 rounded-xl border font-bold transition-all ${role === 'professional' ? 'bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'bg-[#111827] border-gray-700 text-gray-400 hover:border-gray-600'}`}
+                                >
+                                    Profissional
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest ml-1">Seu Nome Completo</label>
+                            <input
+                                type="text"
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                placeholder="João da Silva"
+                                className="w-full bg-[#111827] border border-gray-700 rounded-xl py-3.5 px-4 text-white focus:ring-2 focus:ring-[#1b7cf5] transition-all"
+                                required
+                            />
+                        </div>
+
+                        <button
+                            type="submit"
+                            disabled={isSubmitting || !name.trim()}
+                            className="w-full bg-[#1b7cf5] hover:bg-[#1b7cf5]/90 text-white font-bold py-4 rounded-xl shadow-lg transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
+                        >
+                            {isSubmitting ? (
+                                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            ) : (
+                                <>Concluir <Rocket className="w-5 h-5" /></>
+                            )}
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => logout()}
+                            className="w-full py-2 text-gray-500 text-xs font-bold uppercase tracking-widest hover:text-white transition-colors"
+                        >
+                            Sair da Conta
+                        </button>
+                    </form>
+                </div>
+            </div>
+        );
+    };
+
     const ManagePortfolioScreen = () => {
         const photoInputRef = useRef<HTMLInputElement>(null);
         const videoInputRef = useRef<HTMLInputElement>(null);
@@ -2647,6 +2795,7 @@ export default function App() {
             case 'edit_profile': return <EditProfileScreen />;
             case 'edit_schedule': return <EditScheduleScreen />;
             case 'manage_portfolio': return <ManagePortfolioScreen />;
+            case 'complete_profile': return <CompleteProfileScreen />;
             case 'booking': return <BookingScreen />;
             case 'client_profile': return <ClientProfileScreen />;
             case 'professional_reviews': return <ProfessionalReviewsScreen />;
