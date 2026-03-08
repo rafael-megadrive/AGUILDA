@@ -129,6 +129,17 @@ const MOCK_CHATS: Chat[] = [
 export default function App() {
     const [currentView, setCurrentView] = useState<View>('splash');
     const [viewHistory, setViewHistory] = useState<View[]>(['splash']);
+
+    // Sync currentView with viewHistory
+    useEffect(() => {
+        if (viewHistory.length > 0) {
+            const lastView = viewHistory[viewHistory.length - 1];
+            if (currentView !== lastView) {
+                console.log(`[Navigation] Syncing currentView to: ${lastView}`);
+                setCurrentView(lastView);
+            }
+        }
+    }, [viewHistory]);
     const [userRole, setUserRole] = useState<'client' | 'professional'>('client');
     const [selectedPro, setSelectedPro] = useState<Professional | null>(null);
     const [activeChatId, setActiveChatId] = useState<string | null>(null);
@@ -178,20 +189,20 @@ export default function App() {
                             name: profile.full_name || 'User',
                             avatar: profile.avatar_url || (profile.role === 'professional' ? 'https://picsum.photos/seed/pro-default/200/200' : 'https://picsum.photos/seed/user-default/200/200'),
                         } as any);
-                        navigate(profile.role === 'client' ? 'client_home' : 'professional_home', true);
+                        navigate(profile.role === 'client' ? 'client_home' : 'professional_home', { reset: true });
                     } else {
                         console.warn('[Auth] No profile found - directing to complete_profile');
-                        navigate('complete_profile', true);
+                        navigate('complete_profile', { reset: true });
                     }
                 } catch (err) {
                     console.error('[Auth] Error fetching profile:', err);
                     // On error but with session, better to try complete_profile than role_selection
-                    navigate('complete_profile', true);
+                    navigate('complete_profile', { reset: true });
                 }
             } else {
                 console.log('[Auth] No session - resetting to role_selection');
                 setUserRole('client');
-                navigate('role_selection', true);
+                navigate('role_selection', { reset: true });
                 setCurrentUser({
                     id: 'c1',
                     name: 'Visitante',
@@ -215,7 +226,7 @@ export default function App() {
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
             console.log('[Auth] Event received:', event);
             if (event === 'PASSWORD_RECOVERY') {
-                navigate('reset_password', true);
+                navigate('reset_password', { reset: true });
             } else {
                 handleAuthChange(session);
             }
@@ -437,7 +448,7 @@ export default function App() {
     useEffect(() => {
         if (currentView === 'splash') {
             const timer = setTimeout(() => {
-                navigate('role_selection', true);
+                navigate('role_selection', { reset: true });
             }, 3000);
             return () => clearTimeout(timer);
         }
@@ -486,36 +497,44 @@ export default function App() {
     };
 
     // Navigation Helper
-    const navigate = (view: View, replace = false) => {
+    const navigate = (view: View, options?: { replace?: boolean; reset?: boolean }) => {
+        const { replace = false, reset = false } = options || {};
+        console.log(`[Navigation] navigate to: ${view}`, { replace, reset });
+
         const CLIENT_ONLY_VIEWS: View[] = ['client_home', 'pro_profile', 'search', 'booking', 'client_profile'];
         const PRO_ONLY_VIEWS: View[] = ['professional_home', 'manage_portfolio', 'edit_schedule'];
 
-        if (userRole === 'client' && PRO_ONLY_VIEWS.includes(view)) {
-            return;
-        }
-        if (userRole === 'professional' && CLIENT_ONLY_VIEWS.includes(view)) {
-            return;
-        }
+        if (userRole === 'client' && PRO_ONLY_VIEWS.includes(view)) return;
+        if (userRole === 'professional' && CLIENT_ONLY_VIEWS.includes(view)) return;
 
+        // Prevent duplicate consecutive entries
         if (viewHistory[viewHistory.length - 1] === view) return;
 
-        if (replace) {
+        if (reset) {
             setViewHistory([view]);
+        } else if (replace) {
+            setViewHistory(prev => (prev.length > 0 ? [...prev.slice(0, -1), view] : [view]));
         } else {
             setViewHistory(prev => [...prev, view]);
         }
-        setCurrentView(view);
         window.scrollTo(0, 0);
     };
 
     const goBack = () => {
+        console.log('[Navigation] goBack requested', { history: viewHistory });
         if (viewHistory.length > 1) {
-            const newHistory = [...viewHistory];
-            newHistory.pop();
-            const previousView = newHistory[newHistory.length - 1];
-            setViewHistory(newHistory);
-            setCurrentView(previousView);
+            setViewHistory(prev => {
+                const newHistory = [...prev];
+                newHistory.pop();
+                return newHistory;
+            });
             window.scrollTo(0, 0);
+        } else {
+            const homeView = userRole === 'professional' ? 'professional_home' : 'client_home';
+            if (currentView !== homeView) {
+                console.log(`[Navigation] History empty, returning to home: ${homeView}`);
+                setViewHistory([homeView]);
+            }
         }
     };
 
@@ -523,8 +542,6 @@ export default function App() {
         const { error } = await supabase.auth.signOut();
         if (error) console.error('Error signing out:', error);
     };
-
-    // --- Components for Screens ---
 
     // --- Components for Screens ---
 
@@ -708,7 +725,7 @@ export default function App() {
                     className="w-full max-w-md bg-[#1f2937] rounded-3xl overflow-hidden border border-gray-800 shadow-2xl relative"
                 >
                     <button
-                        onClick={() => navigate('role_selection', true)}
+                        onClick={() => navigate('role_selection', { replace: true })}
                         className="absolute top-6 left-6 z-20 text-white/50 hover:text-white transition-colors"
                     >
                         <ArrowLeft className="w-6 h-6" />
@@ -854,7 +871,7 @@ export default function App() {
                     className="w-full max-w-md bg-[#1f2937] rounded-3xl overflow-hidden border border-gray-800 shadow-2xl"
                 >
                     <div className="p-8">
-                        <button onClick={() => navigate('login', true)} className="mb-6 text-gray-400 hover:text-white flex items-center gap-2">
+                        <button onClick={() => navigate('login', { replace: true })} className="mb-6 text-gray-400 hover:text-white flex items-center gap-2">
                             <ArrowLeft className="w-5 h-5" /> Voltar
                         </button>
                         <h2 className="text-3xl font-bold text-white mb-2">Criar Conta</h2>
@@ -1102,19 +1119,19 @@ export default function App() {
                 </main>
 
                 <nav className="fixed bottom-0 left-0 right-0 bg-[#1f2937]/95 backdrop-blur-lg border-t border-gray-800 px-8 py-4 pb-8 flex justify-between items-center z-40">
-                    <button onClick={() => navigate('client_home')} className="flex flex-col items-center gap-1 text-[#1b7cf5]">
+                    <button onClick={() => navigate('client_home', { replace: true })} className="flex flex-col items-center gap-1 text-[#1b7cf5]">
                         <Home className="w-6 h-6" />
                         <span className="text-[10px] font-bold">Início</span>
                     </button>
-                    <button onClick={() => navigate('search')} className="flex flex-col items-center gap-1 text-gray-500">
+                    <button onClick={() => navigate('search', { replace: true })} className="flex flex-col items-center gap-1 text-gray-500">
                         <Search className="w-6 h-6" />
                         <span className="text-[10px] font-bold">Buscar</span>
                     </button>
-                    <button onClick={() => navigate('messages')} className="flex flex-col items-center gap-1 text-gray-500">
+                    <button onClick={() => navigate('messages', { replace: true })} className="flex flex-col items-center gap-1 text-gray-500">
                         <MessageSquare className="w-6 h-6" />
                         <span className="text-[10px] font-bold">Mensagens</span>
                     </button>
-                    <button onClick={() => navigate('edit_profile')} className="flex flex-col items-center gap-1 text-gray-500">
+                    <button onClick={() => navigate('edit_profile', { replace: true })} className="flex flex-col items-center gap-1 text-gray-500">
                         <UserIcon className="w-6 h-6" />
                         <span className="text-[10px] font-bold">Perfil</span>
                     </button>
@@ -1220,19 +1237,19 @@ export default function App() {
                 </main>
 
                 <nav className="fixed bottom-0 left-0 right-0 bg-[#1f2937]/95 backdrop-blur-lg border-t border-gray-800 px-8 py-4 pb-8 flex justify-between items-center z-40">
-                    <button onClick={() => navigate('professional_home')} className="flex flex-col items-center gap-1 text-[#1b7cf5]">
+                    <button onClick={() => navigate('professional_home', { replace: true })} className="flex flex-col items-center gap-1 text-[#1b7cf5]">
                         <Home className="w-6 h-6" />
                         <span className="text-[10px] font-bold">Início</span>
                     </button>
-                    <button onClick={() => navigate('manage_portfolio')} className="flex flex-col items-center gap-1 text-gray-500">
+                    <button onClick={() => navigate('manage_portfolio', { replace: true })} className="flex flex-col items-center gap-1 text-gray-500">
                         <Grid className="w-6 h-6" />
                         <span className="text-[10px] font-bold">Portfólio</span>
                     </button>
-                    <button onClick={() => navigate('messages')} className="flex flex-col items-center gap-1 text-gray-500">
+                    <button onClick={() => navigate('messages', { replace: true })} className="flex flex-col items-center gap-1 text-gray-500">
                         <MessageSquare className="w-6 h-6" />
                         <span className="text-[10px] font-bold">Mensagens</span>
                     </button>
-                    <button onClick={() => { setSelectedPro(currentUser as Professional); navigate('pro_profile'); }} className="flex flex-col items-center gap-1 text-gray-500">
+                    <button onClick={() => { setSelectedPro(currentUser as Professional); navigate('pro_profile', { replace: true }); }} className="flex flex-col items-center gap-1 text-gray-500">
                         <UserIcon className="w-6 h-6" />
                         <span className="text-[10px] font-bold">Perfil</span>
                     </button>
@@ -1656,15 +1673,15 @@ export default function App() {
             </main>
 
             <nav className="fixed bottom-0 left-0 right-0 bg-[#1f2937]/95 backdrop-blur-lg border-t border-gray-800 px-8 py-4 pb-8 flex justify-around items-center z-40">
-                <button onClick={() => navigate(userRole === 'client' ? 'client_home' : 'professional_home')} className="flex flex-col items-center gap-1 text-gray-500">
+                <button onClick={() => navigate(userRole === 'client' ? 'client_home' : 'professional_home', { replace: true })} className="flex flex-col items-center gap-1 text-gray-500">
                     <Home className="w-6 h-6" />
                     <span className="text-[10px] font-bold">Início</span>
                 </button>
-                <button onClick={() => navigate('messages')} className="flex flex-col items-center gap-1 text-[#1b7cf5]">
+                <button onClick={() => navigate('messages', { replace: true })} className="flex flex-col items-center gap-1 text-[#1b7cf5]">
                     <MessageSquare className="w-6 h-6" />
                     <span className="text-[10px] font-bold">Mensagens</span>
                 </button>
-                <button onClick={() => navigate('edit_profile')} className="flex flex-col items-center gap-1 text-gray-500">
+                <button onClick={() => navigate('edit_profile', { replace: true })} className="flex flex-col items-center gap-1 text-gray-500">
                     <UserIcon className="w-6 h-6" />
                     <span className="text-[10px] font-bold">Perfil</span>
                 </button>
@@ -2059,7 +2076,7 @@ export default function App() {
                         name: profile.full_name || 'User',
                         avatar: profile.avatar_url || (profile.role === 'professional' ? 'https://picsum.photos/seed/pro-default/200/200' : 'https://picsum.photos/seed/user-default/200/200'),
                     } as any);
-                    navigate(profile.role === 'client' ? 'client_home' : 'professional_home', true);
+                    navigate(profile.role === 'client' ? 'client_home' : 'professional_home', { reset: true });
                 }
             } catch (err: any) {
                 console.error('Error completing profile:', err);
@@ -2398,19 +2415,19 @@ export default function App() {
                 </main>
 
                 <nav className="fixed bottom-0 left-0 right-0 bg-[#1f2937]/95 backdrop-blur-lg border-t border-gray-800 px-8 py-4 pb-8 flex justify-between items-center z-40">
-                    <button onClick={() => navigate('client_home')} className="flex flex-col items-center gap-1 text-gray-500">
+                    <button onClick={() => navigate('client_home', { replace: true })} className="flex flex-col items-center gap-1 text-gray-500">
                         <Home className="w-6 h-6" />
                         <span className="text-[10px] font-bold">Início</span>
                     </button>
-                    <button onClick={() => navigate('search')} className="flex flex-col items-center gap-1 text-[#1b7cf5]">
+                    <button onClick={() => navigate('search', { replace: true })} className="flex flex-col items-center gap-1 text-[#1b7cf5]">
                         <Search className="w-6 h-6" />
                         <span className="text-[10px] font-bold">Buscar</span>
                     </button>
-                    <button onClick={() => navigate('messages')} className="flex flex-col items-center gap-1 text-gray-500">
+                    <button onClick={() => navigate('messages', { replace: true })} className="flex flex-col items-center gap-1 text-gray-500">
                         <MessageSquare className="w-6 h-6" />
                         <span className="text-[10px] font-bold">Mensagens</span>
                     </button>
-                    <button onClick={() => navigate('client_profile')} className="flex flex-col items-center gap-1 text-gray-500">
+                    <button onClick={() => navigate('client_profile', { replace: true })} className="flex flex-col items-center gap-1 text-gray-500">
                         <UserIcon className="w-6 h-6" />
                         <span className="text-[10px] font-bold">Perfil</span>
                     </button>
@@ -3058,7 +3075,7 @@ export default function App() {
                     animate={{ opacity: 1, scale: 1 }}
                     className="w-full max-w-md bg-[#1f2937] rounded-3xl p-8 border border-gray-800 shadow-2xl"
                 >
-                    <button onClick={() => navigate('login', true)} className="mb-6 text-gray-400 hover:text-white flex items-center gap-2">
+                    <button onClick={() => navigate('login', { replace: true })} className="mb-6 text-gray-400 hover:text-white flex items-center gap-2">
                         <ArrowLeft className="w-5 h-5" /> Voltar
                     </button>
                     <h2 className="text-3xl font-bold text-white mb-2">Recuperar Senha</h2>
@@ -3114,7 +3131,7 @@ export default function App() {
                 const { error } = await supabase.auth.updateUser({ password });
                 if (error) throw error;
                 setMessage({ type: 'success', text: 'Senha alterada com sucesso! Redirecionando...' });
-                setTimeout(() => navigate('login', true), 2000);
+                setTimeout(() => navigate('login', { replace: true }), 2000);
             } catch (err: any) {
                 setMessage({ type: 'error', text: err.message || 'Erro ao alterar senha.' });
             } finally {
