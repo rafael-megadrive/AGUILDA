@@ -43,7 +43,8 @@ import {
     Hammer,
     Wind,
     Sparkles,
-    Sprout
+    Sprout,
+    Trash2
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, ResponsiveContainer, Cell, Tooltip } from 'recharts';
 import { View, User, UserRole, Professional, Chat, Message as MessageType, PortfolioItem, Review } from './types';
@@ -139,12 +140,14 @@ export default function App() {
     const [professionals, setProfessionals] = useState<Professional[]>([]);
     const [workerTypeFilter, setWorkerTypeFilter] = useState<'all' | 'professional' | 'autonomous'>('all');
     const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+    const [notifications, setNotifications] = useState<Notification[]>([]);
 
     // Initialize reviews from database
     const [reviews, setReviews] = useState<Review[]>([]);
     const [chats, setChats] = useState<Chat[]>([]);
     const [activeChatMessages, setActiveChatMessages] = useState<MessageType[]>([]);
     const activeChat = chats.find(c => c.id === activeChatId) || null;
+    const unreadNotificationsCount = notifications.filter(n => !n.is_read).length;
 
 
     const [session, setSession] = useState<Session | null>(null);
@@ -379,6 +382,51 @@ export default function App() {
             supabase.removeChannel(channel);
         };
     }, [activeChat]);
+
+    // Fetch Notifications
+    useEffect(() => {
+        if (!session?.user) {
+            setNotifications([]);
+            return;
+        }
+
+        const fetchNotifications = async () => {
+            const { data, error } = await supabase
+                .from('notifications')
+                .select('*')
+                .eq('user_id', session.user.id)
+                .order('created_at', { ascending: false });
+
+            if (data) {
+                setNotifications(data);
+            }
+        };
+
+        fetchNotifications();
+
+        // Real-time subscription for notifications
+        const channel = supabase
+            .channel(`notifications:${session.user.id}`)
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'notifications',
+                filter: `user_id=eq.${session.user.id}`
+            }, (payload) => {
+                if (payload.eventType === 'INSERT') {
+                    setNotifications(prev => [payload.new as Notification, ...prev]);
+                } else if (payload.eventType === 'UPDATE') {
+                    setNotifications(prev => prev.map(n => n.id === payload.new.id ? payload.new as Notification : n));
+                } else if (payload.eventType === 'DELETE') {
+                    setNotifications(prev => prev.filter(n => n.id !== payload.old.id));
+                }
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [session?.user]);
 
     // Save reviews to localStorage whenever they change
     useEffect(() => {
@@ -955,11 +1003,11 @@ export default function App() {
                             </div>
                         </div>
                         <button
-                            onClick={() => navigate('messages')}
+                            onClick={() => navigate('notifications')}
                             className="w-10 h-10 rounded-full bg-[#111827] border border-gray-700 flex items-center justify-center relative active:scale-90 transition-all"
                         >
-                            <Bell className="text-gray-400 w-5 h-5" />
-                            <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-[#1b7cf5] rounded-full"></span>
+                            <Bell className={`${unreadNotificationsCount > 0 ? 'text-[#1b7cf5]' : 'text-gray-400'} w-5 h-5`} />
+                            {unreadNotificationsCount > 0 && <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-[#1b7cf5] rounded-full"></span>}
                         </button>
                     </div>
                     <form onSubmit={handleSearch} className="relative">
@@ -1096,9 +1144,12 @@ export default function App() {
                             </div>
                         </div>
                         <div className="flex gap-3">
-                            <button className="w-10 h-10 rounded-full bg-[#111827] border border-gray-700 flex items-center justify-center relative">
-                                <Bell className="text-gray-400 w-5 h-5" />
-                                <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-[#1b7cf5] rounded-full"></span>
+                            <button
+                                onClick={() => navigate('notifications')}
+                                className="w-10 h-10 rounded-full bg-[#111827] border border-gray-700 flex items-center justify-center relative"
+                            >
+                                <Bell className={`${unreadNotificationsCount > 0 ? 'text-[#1b7cf5]' : 'text-gray-400'} w-5 h-5`} />
+                                {unreadNotificationsCount > 0 && <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-[#1b7cf5] rounded-full"></span>}
                             </button>
                             <button onClick={() => navigate('edit_profile')} className="w-10 h-10 rounded-full bg-[#111827] border border-gray-700 flex items-center justify-center">
                                 <UserIcon className="text-gray-400 w-5 h-5" />
@@ -1443,6 +1494,89 @@ export default function App() {
                         </div>
                     )}
                 </div>
+            </div>
+        );
+    };
+
+    const NotificationsScreen = () => {
+        const markAllAsRead = async () => {
+            const { error } = await supabase
+                .from('notifications')
+                .update({ is_read: true })
+                .eq('user_id', currentUser?.id)
+                .eq('is_read', false);
+
+            if (error) {
+                console.error('Error marking notifications as read:', error);
+            }
+        };
+
+        const deleteNotification = async (id: string) => {
+            const { error } = await supabase
+                .from('notifications')
+                .delete()
+                .eq('id', id);
+
+            if (error) {
+                console.error('Error deleting notification:', error);
+            }
+        };
+
+        return (
+            <div className="min-h-screen bg-[#101822] pb-24">
+                <header className="px-6 pt-16 pb-4 flex items-center justify-between sticky top-0 bg-[#101822]/90 backdrop-blur-md z-30 border-b border-gray-800">
+                    <button onClick={() => goBack()} className="text-gray-400">
+                        <ArrowLeft className="w-6 h-6" />
+                    </button>
+                    <h1 className="text-lg font-bold text-white">Notificações</h1>
+                    <button onClick={markAllAsRead} className="text-[#1b7cf5] text-xs font-bold px-2 py-1 rounded-lg active:bg-[#1b7cf5]/10">Lidas</button>
+                </header>
+
+                <main className="px-6 pt-6 space-y-4">
+                    {notifications.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-20 text-center">
+                            <div className="w-20 h-20 bg-gray-800/30 rounded-full flex items-center justify-center mb-4">
+                                <Bell className="w-10 h-10 text-gray-600" />
+                            </div>
+                            <h3 className="text-gray-400 font-bold">Nenhuma notificação</h3>
+                            <p className="text-gray-600 text-sm mt-1">Você está em dia com tudo!</p>
+                        </div>
+                    ) : (
+                        notifications.map((notification) => (
+                            <div
+                                key={notification.id}
+                                className={`p-4 rounded-2xl border ${notification.is_read ? 'bg-[#111827] border-gray-800' : 'bg-[#1b7cf5]/5 border-[#1b7cf5]/30'} relative group transition-all`}
+                            >
+                                <div className="flex gap-4">
+                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${notification.type === 'message' ? 'bg-blue-500/20 text-blue-500' :
+                                        notification.type === 'booking' ? 'bg-emerald-500/20 text-emerald-500' :
+                                            'bg-purple-500/20 text-purple-500'
+                                        }`}>
+                                        {notification.type === 'message' ? <MessageSquare className="w-5 h-5" /> :
+                                            notification.type === 'booking' ? <CheckCircle2 className="w-5 h-5" /> :
+                                                <Bell className="w-5 h-5" />}
+                                    </div>
+                                    <div className="flex-1">
+                                        <div className="flex justify-between items-start">
+                                            <h4 className={`text-sm font-bold ${notification.is_read ? 'text-gray-300' : 'text-white'}`}>{notification.title}</h4>
+                                            <span className="text-[10px] text-gray-600 shrink-0 ml-2">{new Date(notification.created_at).toLocaleDateString()}</span>
+                                        </div>
+                                        <p className="text-xs text-gray-500 mt-1 leading-relaxed">{notification.content}</p>
+                                    </div>
+                                </div>
+                                {!notification.is_read && (
+                                    <div className="absolute top-4 right-4 w-2 h-2 bg-[#1b7cf5] rounded-full"></div>
+                                )}
+                                <button
+                                    onClick={() => deleteNotification(notification.id)}
+                                    className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity p-2"
+                                >
+                                    <Trash2 className="w-4 h-4 text-gray-600 hover:text-red-500" />
+                                </button>
+                            </div>
+                        ))
+                    )}
+                </main>
             </div>
         );
     };
@@ -3055,6 +3189,7 @@ export default function App() {
             case 'review_submission': return <ReviewSubmissionScreen />;
             case 'forgot_password': return <ForgotPasswordScreen />;
             case 'reset_password': return <ResetPasswordScreen />;
+            case 'notifications': return <NotificationsScreen />;
             default: return <LoginScreen />;
         }
     };

@@ -65,6 +65,16 @@ export interface Review {
   date: string;
 }
 
+export interface Notification {
+  id: string;
+  user_id: string;
+  title: string;
+  content: string;
+  type: 'message' | 'booking' | 'system';
+  is_read: boolean;
+  created_at: string;
+}
+
 export type View =
   | 'splash'
   | 'role_selection'
@@ -85,4 +95,5 @@ export type View =
   | 'professional_reviews'
   | 'review_submission'
   | 'forgot_password'
-  | 'reset_password';
+  | 'reset_password'
+  | 'notifications';
