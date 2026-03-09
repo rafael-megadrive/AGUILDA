@@ -371,7 +371,11 @@ export default function App() {
     // Fetch Messages for active chat
     useEffect(() => {
         if (!activeChat) {
-            setActiveChatMessages([]);
+            // Only clear messages if we are truly exiting any chat view
+            // If activeChat is null but currentView is 'chat_room', we might be in a 'temp' state
+            if (currentView !== 'chat_room') {
+                setActiveChatMessages([]);
+            }
             return;
         }
 
@@ -404,12 +408,17 @@ export default function App() {
                 filter: `chat_id=eq.${activeChat.id}`
             }, (payload) => {
                 const newMessage = payload.new;
-                setActiveChatMessages(prev => [...prev, {
-                    id: newMessage.id,
-                    senderId: newMessage.sender_id,
-                    text: newMessage.text,
-                    timestamp: new Date(newMessage.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-                }]);
+                setActiveChatMessages(prev => {
+                    // Deduplicate: Don't add if the message is already there (e.g. from optimistic update)
+                    if (prev.some(m => m.id === newMessage.id)) return prev;
+
+                    return [...prev, {
+                        id: newMessage.id,
+                        senderId: newMessage.sender_id,
+                        text: newMessage.text,
+                        timestamp: new Date(newMessage.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+                    }];
+                });
             })
             .subscribe();
 
@@ -1754,6 +1763,16 @@ export default function App() {
             const text = newMessage;
             setNewMessage('');
 
+            // OPTIMISTIC UPDATE: Add the message to the UI immediately
+            const tempId = 'temp-' + Date.now();
+            const optimisticMsg: MessageType = {
+                id: tempId,
+                senderId: session.user.id,
+                text: text,
+                timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+            };
+            setActiveChatMessages(prev => [...prev, optimisticMsg]);
+
             let chatId = activeChat?.id;
 
             // If it's a temp chat (new conversation), create the chat first
@@ -1795,6 +1814,8 @@ export default function App() {
                 console.error('[Chat] Message send error:', msgError);
                 alert('Erro ao enviar mensagem: ' + msgError.message);
                 setNewMessage(text);
+                // Remove optimistic message on error
+                setActiveChatMessages(prev => prev.filter(m => m.id !== tempId));
             } else {
                 console.log('[Chat] Message sent successfully');
                 // Update chat timestamp and last message
