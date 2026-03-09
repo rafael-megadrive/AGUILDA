@@ -127,8 +127,21 @@ const MOCK_CHATS: Chat[] = [
 ];
 
 export default function App() {
+    const [userRole, setUserRole] = useState<'client' | 'professional'>('client');
     const [currentView, setCurrentView] = useState<View>('splash');
     const [viewHistory, setViewHistory] = useState<View[]>(['splash']);
+
+    // Refs to track state and avoid stale closures in listeners
+    const userRoleRef = useRef(userRole);
+    const currentViewRef = useRef(currentView);
+
+    useEffect(() => {
+        userRoleRef.current = userRole;
+    }, [userRole]);
+
+    useEffect(() => {
+        currentViewRef.current = currentView;
+    }, [currentView]);
 
     // Sync currentView with viewHistory
     useEffect(() => {
@@ -140,7 +153,6 @@ export default function App() {
             }
         }
     }, [viewHistory]);
-    const [userRole, setUserRole] = useState<'client' | 'professional'>('client');
     const [selectedPro, setSelectedPro] = useState<Professional | null>(null);
     const [activeChatId, setActiveChatId] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
@@ -172,6 +184,16 @@ export default function App() {
             setSession(session);
 
             if (session?.user) {
+                // ONLY use metadata if we are in the initial load (splash) 
+                // and don't have a profile yet to avoid overwriting current selection
+                const metadataRole = session.user.user_metadata?.role as UserRole;
+
+                // Use Refs to see the LATEST values, avoiding stale closures
+                if (currentViewRef.current === 'splash' && metadataRole && (metadataRole === 'client' || metadataRole === 'professional')) {
+                    console.log('[Auth] Initial load: Using metadata role hint:', metadataRole);
+                    setUserRole(metadataRole);
+                }
+
                 try {
                     console.log('[Auth] Fetching profile for:', session.user.id);
                     const { data: profile, error: profileError } = await supabase
@@ -183,35 +205,37 @@ export default function App() {
                     console.log('[Auth] Profile result:', { profile, error: profileError });
 
                     if (profile) {
+                        console.log('[Auth] Found profile in DB, setting role:', profile.role);
                         setUserRole(profile.role);
                         setCurrentUser({
                             ...profile,
-                            name: profile.full_name || 'User',
+                            name: profile.full_name || session.user.user_metadata?.name || 'User',
                             avatar: profile.avatar_url || (profile.role === 'professional' ? 'https://picsum.photos/seed/pro-default/200/200' : 'https://picsum.photos/seed/user-default/200/200'),
                         } as any);
                         navigate(profile.role === 'client' ? 'client_home' : 'professional_home', { reset: true, ignoreGuards: true });
                     } else {
-                        console.warn('[Auth] No profile found - directing to complete_profile');
+                        console.warn('[Auth] No profile found in database - using latest selection from Ref:', userRoleRef.current);
+                        // IMPORTANT: Trust the userRoleRef here. If they clicked 'Client', stay as client.
+
+                        setCurrentUser(prev => ({
+                            ...prev,
+                            id: session.user.id,
+                            name: session.user.user_metadata?.name || 'User',
+                            email: session.user.email || '',
+                            role: userRoleRef.current // PRIORITIZE ref value over anything else
+                        } as any));
+
                         navigate('complete_profile', { reset: true, ignoreGuards: true });
                     }
                 } catch (err) {
                     console.error('[Auth] Error fetching profile:', err);
-                    // On error but with session, better to try complete_profile than role_selection
+                    // Better to stay safe and ask for profile completion if something is wrong
                     navigate('complete_profile', { reset: true });
                 }
             } else {
                 console.log('[Auth] No session - resetting to role_selection');
-                setUserRole('client');
-                navigate('role_selection', { reset: true });
-                setCurrentUser({
-                    id: 'c1',
-                    name: 'Visitante',
-                    email: 'cliente@exemplo.com',
-                    role: 'client',
-                    avatar: 'https://picsum.photos/seed/user123/200/200',
-                    location: 'São Paulo, SP',
-                    phone: '(11) 99999-9999'
-                });
+                // Don't force reset states if we are just starting and might have a session soon
+                // but if we are sure there is no session, then reset.
             }
 
             setLoading(false);
@@ -448,21 +472,25 @@ export default function App() {
     useEffect(() => {
         if (currentView === 'splash') {
             const timer = setTimeout(() => {
-                navigate('role_selection', { reset: true });
+                // Only navigate to role_selection if we are still on splash and no session was found
+                if (currentView === 'splash' && !session) {
+                    console.log('[Splash] Timer finished, no session found, navigating to role_selection');
+                    navigate('role_selection', { reset: true });
+                }
             }, 3000);
             return () => clearTimeout(timer);
         }
-    }, [currentView]);
+    }, [currentView, session]);
 
-    const [currentUser, setCurrentUser] = useState<User>({
-        id: 'c1',
+    const [currentUser, setCurrentUser] = useState<User>(() => ({
+        id: 'visitor',
         name: 'Visitante',
-        email: 'cliente@exemplo.com',
+        email: '',
         role: 'client',
-        avatar: 'https://picsum.photos/seed/user123/200/200',
+        avatar: 'https://picsum.photos/seed/user-default/200/200',
         location: 'São Paulo, SP',
-        phone: '(11) 99999-9999'
-    });
+        phone: ''
+    }));
 
     // Schedule State
     const [viewDate, setViewDate] = useState(new Date(2026, 1, 1)); // Fevereiro 2026
@@ -782,12 +810,16 @@ export default function App() {
             setIsLoggingIn(true);
             try {
                 console.log('[Login] Attempting sign-in...');
-                const { error: loginError } = await supabase.auth.signInWithPassword({
+                const { data, error: loginError } = await supabase.auth.signInWithPassword({
                     email,
                     password,
                 });
-                console.log('[Login] Sign-in result:', { error: loginError });
+                console.log('[Login] Sign-in result:', { error: loginError, user: data?.user });
                 if (loginError) throw loginError;
+
+                // Redirection will be handled by handleAuthChange (supabase.auth.onAuthStateChange)
+                // We DON'T set the role here from metadata to avoid conflicts if profile differs
+                console.log('[Login] Login successful, waiting for auth change...');
             } catch (err: any) {
                 console.error('[Login] Caught error:', err);
                 setError(err.message || 'Erro ao entrar. Verifique suas credenciais.');
@@ -2086,6 +2118,14 @@ export default function App() {
                 if (insertError) throw insertError;
 
                 if (profile) {
+                    console.log('[CompleteProfile] Profile created, syncing metadata for role:', role);
+                    // Update user metadata as well to keep them in sync
+                    const { error: metaError } = await supabase.auth.updateUser({
+                        data: { role: role }
+                    });
+
+                    if (metaError) console.error('[CompleteProfile] Metadata sync error:', metaError);
+
                     setUserRole(profile.role);
                     setCurrentUser({
                         ...profile,
