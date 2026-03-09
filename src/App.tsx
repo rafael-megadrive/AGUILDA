@@ -1758,6 +1758,7 @@ export default function App() {
 
             // If it's a temp chat (new conversation), create the chat first
             if (!chatId) {
+                console.log('[Chat] Creating new chat thread with:', chat.participant.id);
                 const targetId = chat.participant.id;
                 const { data: newChat, error: chatError } = await supabase
                     .from('chats')
@@ -1771,14 +1772,17 @@ export default function App() {
                     .single();
 
                 if (chatError) {
+                    console.error('[Chat] Chat creation error:', chatError);
                     alert('Erro ao iniciar conversa: ' + chatError.message);
                     setNewMessage(text);
                     return;
                 }
+                console.log('[Chat] New chat created successfully:', newChat.id);
                 chatId = newChat.id;
                 setActiveChatId(chatId);
             }
 
+            console.log('[Chat] Sending message to chat:', chatId);
             const { error: msgError } = await supabase
                 .from('messages')
                 .insert({
@@ -1788,9 +1792,11 @@ export default function App() {
                 });
 
             if (msgError) {
+                console.error('[Chat] Message send error:', msgError);
                 alert('Erro ao enviar mensagem: ' + msgError.message);
                 setNewMessage(text);
             } else {
+                console.log('[Chat] Message sent successfully');
                 // Update chat timestamp and last message
                 await supabase
                     .from('chats')
