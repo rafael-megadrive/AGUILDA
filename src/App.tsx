@@ -585,7 +585,12 @@ export default function App() {
 
     const logout = async () => {
         const { error } = await supabase.auth.signOut();
-        if (error) console.error('Error signing out:', error);
+        if (error) {
+            console.error('Error signing out:', error);
+        } else {
+            console.log('[Auth] Successfully signed out, redirecting to role_selection');
+            navigate('role_selection', { reset: true, ignoreGuards: true });
+        }
     };
 
     // --- Components for Screens ---
@@ -593,7 +598,6 @@ export default function App() {
     // Shared Navigation Components
     // Shared Navigation Components
     const ClientBottomNav = () => {
-        const unreadNotifs = notifications.filter(n => !n.is_read).length;
         const unreadMsgs = chats.filter(c => c.unread).length;
 
         return (
@@ -611,10 +615,9 @@ export default function App() {
                     <span className="text-[10px] font-bold">Mensagens</span>
                     {unreadMsgs > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-[#1f2937]">{unreadMsgs}</span>}
                 </button>
-                <button onClick={() => navigate('notifications', { replace: true })} className={`flex flex-col items-center gap-1 relative ${currentView === 'notifications' ? 'text-[#1b7cf5]' : 'text-gray-500 hover:text-gray-300'}`}>
-                    <Bell className="w-5 h-5" />
-                    <span className="text-[10px] font-bold">Avisos</span>
-                    {unreadNotifs > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-[#1f2937]">{unreadNotifs}</span>}
+                <button onClick={logout} className="flex flex-col items-center gap-1 text-gray-500 hover:text-red-500 transition-colors">
+                    <LogOut className="w-5 h-5" />
+                    <span className="text-[10px] font-bold">Sair</span>
                 </button>
                 <button onClick={() => navigate('edit_profile', { replace: true })} className={`flex flex-col items-center gap-1 ${['edit_profile', 'client_profile'].includes(currentView) ? 'text-[#1b7cf5]' : 'text-gray-500 hover:text-gray-300'}`}>
                     <UserIcon className="w-5 h-5" />
@@ -625,7 +628,6 @@ export default function App() {
     };
 
     const ProfessionalBottomNav = () => {
-        const unreadNotifs = notifications.filter(n => !n.is_read).length;
         const unreadMsgs = chats.filter(c => c.unread).length;
 
         return (
@@ -643,10 +645,9 @@ export default function App() {
                     <span className="text-[10px] font-bold">Mensagens</span>
                     {unreadMsgs > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-[#1f2937]">{unreadMsgs}</span>}
                 </button>
-                <button onClick={() => navigate('notifications', { replace: true })} className={`flex flex-col items-center gap-1 relative ${currentView === 'notifications' ? 'text-[#1b7cf5]' : 'text-gray-500 hover:text-gray-300'}`}>
-                    <Bell className="w-5 h-5" />
-                    <span className="text-[10px] font-bold">Avisos</span>
-                    {unreadNotifs > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-[#1f2937]">{unreadNotifs}</span>}
+                <button onClick={logout} className="flex flex-col items-center gap-1 text-gray-500 hover:text-red-500 transition-colors">
+                    <LogOut className="w-5 h-5" />
+                    <span className="text-[10px] font-bold">Sair</span>
                 </button>
                 <button
                     onClick={() => {
@@ -3163,45 +3164,59 @@ export default function App() {
                 <motion.div
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className="w-full max-w-md bg-[#1f2937] rounded-3xl p-8 border border-gray-800 shadow-2xl"
+                    className="w-full max-w-md bg-[#1f2937] rounded-3xl overflow-hidden border border-gray-800 shadow-2xl relative"
                 >
-                    <button onClick={() => navigate('login', { replace: true })} className="mb-6 text-gray-400 hover:text-white flex items-center gap-2">
-                        <ArrowLeft className="w-5 h-5" /> Voltar
+                    <button
+                        onClick={() => navigate('login', { replace: true })}
+                        className="absolute top-6 left-6 z-20 text-white/50 hover:text-white transition-colors"
+                    >
+                        <ArrowLeft className="w-6 h-6" />
                     </button>
-                    <h2 className="text-3xl font-bold text-white mb-2">Recuperar Senha</h2>
-                    <p className="text-gray-400 mb-8">Digite seu e-mail para receber as instruções.</p>
 
-                    <form onSubmit={handleResetRequest} className="space-y-6">
-                        {message && (
-                            <div className={`${message.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' : 'bg-red-500/10 border-red-500/20 text-red-500'} text-xs p-4 rounded-xl flex items-center gap-3`}>
-                                {message.type === 'success' ? <CheckCircle2 className="w-5 h-5 flex-shrink-0" /> : <Settings className="w-5 h-5 flex-shrink-0" />}
-                                <p>{message.text}</p>
-                            </div>
-                        )}
-                        <div>
-                            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 ml-1">E-mail</label>
-                            <input
-                                type="email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                placeholder="seu@email.com"
-                                className="w-full bg-[#111827] border border-gray-700 rounded-xl py-3.5 px-4 text-white focus:ring-2 focus:ring-[#1b7cf5]"
-                                required
-                            />
+                    <div className="h-48 bg-gradient-to-br from-[#1b7cf5] to-[#0891b2] flex flex-col items-center justify-center relative">
+                        <div className="w-20 h-20 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center shadow-xl ring-1 ring-white/20 mb-4 transform -rotate-3 overflow-hidden">
+                            <Mail className="w-10 h-10 text-white drop-shadow-md" />
                         </div>
+                        <h1 className="text-3xl font-bold text-white tracking-tight">Recuperar Senha</h1>
+                        <p className="text-white/70 text-sm mt-1">Enviaremos instruções para seu e-mail</p>
+                    </div>
 
-                        <button
-                            type="submit"
-                            disabled={isSubmitting}
-                            className="w-full bg-[#1b7cf5] hover:bg-[#1b7cf5]/90 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 disabled:opacity-50"
-                        >
-                            {isSubmitting ? (
-                                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                            ) : (
-                                'Enviar Link de Recuperação'
+                    <div className="p-8">
+                        <form onSubmit={handleResetRequest} className="space-y-6">
+                            {message && (
+                                <div className={`${message.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' : 'bg-red-500/10 border-red-500/20 text-red-500'} text-xs p-4 rounded-xl flex items-center gap-3`}>
+                                    {message.type === 'success' ? <CheckCircle2 className="w-5 h-5 flex-shrink-0" /> : <Settings className="w-5 h-5 flex-shrink-0" />}
+                                    <p>{message.text}</p>
+                                </div>
                             )}
-                        </button>
-                    </form>
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 ml-1">E-mail</label>
+                                <div className="relative">
+                                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 w-5 h-5" />
+                                    <input
+                                        type="email"
+                                        value={email}
+                                        onChange={(e) => setEmail(e.target.value)}
+                                        placeholder="seu@email.com"
+                                        className="w-full bg-[#111827] border border-gray-700 rounded-xl py-3.5 pl-12 pr-4 text-white focus:ring-2 focus:ring-[#1b7cf5] transition-all"
+                                        required
+                                    />
+                                </div>
+                            </div>
+
+                            <button
+                                type="submit"
+                                disabled={isSubmitting}
+                                className="w-full bg-[#1b7cf5] hover:bg-[#1b7cf5]/90 text-white font-bold py-4 rounded-xl shadow-lg shadow-[#1b7cf5]/20 flex items-center justify-center gap-2 disabled:opacity-50 transition-all active:scale-[0.98]"
+                            >
+                                {isSubmitting ? (
+                                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                ) : (
+                                    <>Enviar Link <Send className="w-5 h-5" /></>
+                                )}
+                            </button>
+                        </form>
+                    </div>
                 </motion.div>
             </div>
         );
@@ -3234,42 +3249,52 @@ export default function App() {
                 <motion.div
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className="w-full max-w-md bg-[#1f2937] rounded-3xl p-8 border border-gray-800 shadow-2xl"
+                    className="w-full max-w-md bg-[#1f2937] rounded-3xl overflow-hidden border border-gray-800 shadow-2xl relative"
                 >
-                    <h2 className="text-3xl font-bold text-white mb-2">Nova Senha</h2>
-                    <p className="text-gray-400 mb-8">Defina sua nova credencial de acesso.</p>
-
-                    <form onSubmit={handlePasswordUpdate} className="space-y-6">
-                        {message && (
-                            <div className={`${message.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' : 'bg-red-500/10 border-red-500/20 text-red-500'} text-xs p-4 rounded-xl flex items-center gap-3`}>
-                                {message.type === 'success' ? <CheckCircle2 className="w-5 h-5 flex-shrink-0" /> : <Settings className="w-5 h-5 flex-shrink-0" />}
-                                <p>{message.text}</p>
-                            </div>
-                        )}
-                        <div>
-                            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 ml-1">Nova Senha</label>
-                            <input
-                                type="password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                placeholder="••••••••"
-                                className="w-full bg-[#111827] border border-gray-700 rounded-xl py-3.5 px-4 text-white focus:ring-2 focus:ring-[#1b7cf5]"
-                                required
-                            />
+                    <div className="h-48 bg-gradient-to-br from-[#1b7cf5] to-[#0891b2] flex flex-col items-center justify-center relative">
+                        <div className="w-20 h-20 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center shadow-xl ring-1 ring-white/20 mb-4 transform rotate-3 overflow-hidden">
+                            <Lock className="w-10 h-10 text-white drop-shadow-md" />
                         </div>
+                        <h1 className="text-3xl font-bold text-white tracking-tight">Nova Senha</h1>
+                        <p className="text-white/70 text-sm mt-1">Defina sua nova credencial de acesso</p>
+                    </div>
 
-                        <button
-                            type="submit"
-                            disabled={isSubmitting}
-                            className="w-full bg-[#1b7cf5] hover:bg-[#1b7cf5]/90 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 disabled:opacity-50"
-                        >
-                            {isSubmitting ? (
-                                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                            ) : (
-                                'Redefinir Senha'
+                    <div className="p-8">
+                        <form onSubmit={handlePasswordUpdate} className="space-y-6">
+                            {message && (
+                                <div className={`${message.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' : 'bg-red-500/10 border-red-500/20 text-red-500'} text-xs p-4 rounded-xl flex items-center gap-3`}>
+                                    {message.type === 'success' ? <CheckCircle2 className="w-5 h-5 flex-shrink-0" /> : <Settings className="w-5 h-5 flex-shrink-0" />}
+                                    <p>{message.text}</p>
+                                </div>
                             )}
-                        </button>
-                    </form>
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 ml-1">Nova Senha</label>
+                                <div className="relative">
+                                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 w-5 h-5" />
+                                    <input
+                                        type="password"
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        placeholder="••••••••"
+                                        className="w-full bg-[#111827] border border-gray-700 rounded-xl py-3.5 pl-12 pr-4 text-white focus:ring-2 focus:ring-[#1b7cf5] transition-all"
+                                        required
+                                    />
+                                </div>
+                            </div>
+
+                            <button
+                                type="submit"
+                                disabled={isSubmitting}
+                                className="w-full bg-[#1b7cf5] hover:bg-[#1b7cf5]/90 text-white font-bold py-4 rounded-xl shadow-lg shadow-[#1b7cf5]/20 flex items-center justify-center gap-2 disabled:opacity-50 transition-all active:scale-[0.98]"
+                            >
+                                {isSubmitting ? (
+                                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                ) : (
+                                    <>Redefinir Senha <CheckCircle2 className="w-5 h-5" /></>
+                                )}
+                            </button>
+                        </form>
+                    </div>
                 </motion.div>
             </div>
         );
