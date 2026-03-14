@@ -3136,6 +3136,17 @@ export default function App() {
         </AnimatePresence>
     );
 
+    // Helper to translate common Supabase error messages
+    const translateAuthError = (message: string) => {
+        if (message.includes('rate limit') || message.includes('60 seconds')) return 'Aguarde 60 segundos antes de tentar novamente.';
+        if (message.includes('not found')) return 'Usuário não encontrado.';
+        if (message.includes('Invalid login')) return 'Credenciais inválidas.';
+        if (message.includes('email link is invalid or has expired')) return 'O link de recuperação é inválido ou expirou.';
+        if (message.includes('URL is not allowed')) return 'URL de redirecionamento não configurada no servidor.';
+        if (message.includes('password should be different')) return 'A nova senha deve ser diferente da atual.';
+        return 'Ocorreu um erro ao processar sua solicitação. Tente novamente.';
+    };
+
     const ForgotPasswordScreen = () => {
         const [email, setEmail] = useState('');
         const [isSubmitting, setIsSubmitting] = useState(false);
@@ -3147,13 +3158,12 @@ export default function App() {
             setMessage(null);
 
             try {
-                const { error } = await supabase.auth.resetPasswordForEmail(email, {
-                    redirectTo: window.location.origin,
-                });
+                // Remove redirectTo to let Supabase use its configured default Site URL, preventing 'URL not allowed' errors on Mobile/Capacitor
+                const { error } = await supabase.auth.resetPasswordForEmail(email);
                 if (error) throw error;
                 setMessage({ type: 'success', text: 'E-mail de recuperação enviado! Verifique sua caixa de entrada.' });
             } catch (err: any) {
-                setMessage({ type: 'error', text: err.message || 'Erro ao enviar e-mail.' });
+                setMessage({ type: 'error', text: translateAuthError(err.message || '') });
             } finally {
                 setIsSubmitting(false);
             }
@@ -3232,13 +3242,22 @@ export default function App() {
             setIsSubmitting(true);
             setMessage(null);
 
+            if (password.length < 6) {
+                setMessage({ type: 'error', text: 'A senha deve ter pelo menos 6 caracteres.' });
+                setIsSubmitting(false);
+                return;
+            }
+
             try {
                 const { error } = await supabase.auth.updateUser({ password });
                 if (error) throw error;
                 setMessage({ type: 'success', text: 'Senha alterada com sucesso! Redirecionando...' });
-                setTimeout(() => navigate('login', { replace: true }), 2000);
+
+                // Clear the recovery session so they log in manually with the new credentials
+                await supabase.auth.signOut();
+                setTimeout(() => navigate('login', { replace: true, reset: true }), 2000);
             } catch (err: any) {
-                setMessage({ type: 'error', text: err.message || 'Erro ao alterar senha.' });
+                setMessage({ type: 'error', text: translateAuthError(err.message || '') });
             } finally {
                 setIsSubmitting(false);
             }
