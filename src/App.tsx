@@ -271,7 +271,7 @@ export default function App() {
             if (data) {
                 const formattedPros = data.map(p => ({
                     ...p,
-                    name: p.full_name || 'Profissional',
+                    name: p.full_name || 'Empresa',
                     avatar: p.avatar_url || 'https://picsum.photos/seed/pro-default/200/200',
                     rating: parseFloat(p.rating || '0'),
                     reviewsCount: p.reviews_count || 0,
@@ -778,7 +778,7 @@ export default function App() {
                         </div>
                         <div>
                             <h3 className="text-xl font-bold text-white mb-1">Sou Cliente</h3>
-                            <p className="text-sm text-gray-500">Quero contratar profissionais qualificados</p>
+                            <p className="text-sm text-gray-500">Quero contratar empresas qualificadas</p>
                         </div>
                     </div>
                     <ChevronRight className="absolute right-6 top-1/2 -translate-y-1/2 text-gray-700 group-hover:text-[#1b7cf5]" />
@@ -798,7 +798,7 @@ export default function App() {
                             <Briefcase className="w-8 h-8 text-emerald-500 group-hover:text-white transition-colors" />
                         </div>
                         <div>
-                            <h3 className="text-xl font-bold text-white mb-1">Sou Profissional</h3>
+                            <h3 className="text-xl font-bold text-white mb-1">Sou Empresa</h3>
                             <p className="text-sm text-gray-500">Quero oferecer meus serviços e crescer</p>
                         </div>
                     </div>
@@ -858,12 +858,12 @@ export default function App() {
                             <img src={logo} className="w-14 h-14 object-contain drop-shadow-lg" alt="Logo" />
                         </div>
                         <h1 className="text-3xl font-bold text-white tracking-tight italic">Guilda</h1>
-                        <p className="text-white/70 text-sm mt-1">{userRole === 'client' ? 'Encontre profissionais de elite' : 'Sua plataforma de negócios'}</p>
+                        <p className="text-white/70 text-sm mt-1">{userRole === 'client' ? 'Encontre empresas de elite' : 'Sua plataforma de negócios'}</p>
                     </div>
 
                     <div className="p-8">
                         <div className="flex items-center justify-between mb-6">
-                            <h2 className="text-2xl font-bold text-white">Entrar como <span className="text-[#1b7cf5] capitalize">{userRole === 'client' ? 'Cliente' : 'Profissional'}</span></h2>
+                            <h2 className="text-2xl font-bold text-white">Entrar como <span className="text-[#1b7cf5] capitalize">{userRole === 'client' ? 'Cliente' : 'Empresa'}</span></h2>
                         </div>
                         <form onSubmit={handleLogin} className="space-y-4">
                             {error && (
@@ -997,7 +997,7 @@ export default function App() {
                             <ArrowLeft className="w-5 h-5" /> Voltar
                         </button>
                         <h2 className="text-3xl font-bold text-white mb-2">Criar Conta</h2>
-                        <p className="text-gray-400 mb-8">Junte-se à nossa comunidade de {userRole === 'client' ? 'contratantes' : 'profissionais'}</p>
+                        <p className="text-gray-400 mb-8">Junte-se à nossa comunidade de {userRole === 'client' ? 'contratantes' : 'empresas'}</p>
 
                         <form onSubmit={handleRegister} className="space-y-4">
                             {error && (
@@ -1062,7 +1062,7 @@ export default function App() {
                                                 onClick={() => setWorkerType('professional')}
                                                 className={`py-3 rounded-xl border text-xs font-bold transition-all ${workerType === 'professional' ? 'bg-[#1b7cf5] border-[#1b7cf5] text-white' : 'bg-[#111827] border-gray-700 text-gray-400'}`}
                                             >
-                                                Profissional / Empresa
+                                                Empresa
                                             </button>
                                             <button
                                                 type="button"
@@ -1202,7 +1202,7 @@ export default function App() {
 
                     <section>
                         <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-lg font-bold text-white">Profissionais em Destaque</h2>
+                            <h2 className="text-lg font-bold text-white">Empresas em Destaque</h2>
                             <button className="text-[#1b7cf5] text-sm font-bold">Ver todos</button>
                         </div>
                         <div className="space-y-4">
@@ -1329,7 +1329,7 @@ export default function App() {
 
     const ProfessionalReviewsScreen = () => {
         const proId = userRole === 'professional' ? currentUser.id : (selectedPro?.id || 'pro1');
-        const proName = userRole === 'professional' ? currentUser.name : (selectedPro?.name || 'Profissional');
+        const proName = userRole === 'professional' ? currentUser.name : (selectedPro?.name || 'Empresa');
         const proReviews = reviews.filter(r => r.professionalId === proId);
         const { rating, count } = getProRating(proId);
         const distribution = getReviewDistribution(proId);
@@ -2046,7 +2046,7 @@ export default function App() {
                                     </div>
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-sm font-semibold text-gray-400 ml-1">Biografia Profissional</label>
+                                    <label className="text-sm font-semibold text-gray-400 ml-1">Biografia</label>
                                     <textarea
                                         rows={4}
                                         value={bio}
@@ -2063,7 +2063,7 @@ export default function App() {
                                             onClick={() => setWorkerType('professional')}
                                             className={`py-4 rounded-xl border font-bold transition-all ${workerType === 'professional' ? 'bg-[#1b7cf5] border-[#1b7cf5] text-white shadow-lg shadow-[#1b7cf5]/20' : 'bg-[#1f2937] border-gray-800 text-gray-400'}`}
                                         >
-                                            Profissional
+                                            Empresa
                                         </button>
                                         <button
                                             type="button"
@@ -2203,7 +2203,7 @@ export default function App() {
                                     onClick={() => setRole('professional')}
                                     className={`py-4 rounded-xl border font-bold transition-all ${role === 'professional' ? 'bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'bg-[#111827] border-gray-700 text-gray-400 hover:border-gray-600'}`}
                                 >
-                                    Profissional
+                                    Empresa
                                 </button>
                             </div>
                         </div>
@@ -2420,7 +2420,7 @@ export default function App() {
                             type="text"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder="Busque por categoria ou profissional..."
+                            placeholder="Busque por categoria ou empresa..."
                             className="w-full bg-[#111827] border border-gray-700 rounded-2xl py-4 pl-12 pr-4 text-white focus:ring-2 focus:ring-[#1b7cf5]"
                         />
                     </div>
@@ -2429,7 +2429,7 @@ export default function App() {
                             onClick={() => setIsFilterModalOpen(true)}
                             className={`whitespace-nowrap px-5 py-2 rounded-full text-xs font-bold flex items-center gap-2 transition-all ${workerTypeFilter !== 'all' ? 'bg-[#1b7cf5] text-white' : 'bg-[#111827] text-gray-400 border border-gray-800'}`}
                         >
-                            <Filter className="w-3 h-3" /> {workerTypeFilter === 'all' ? 'Filtros' : workerTypeFilter === 'professional' ? 'Profissional' : 'Autônomo'}
+                            <Filter className="w-3 h-3" /> {workerTypeFilter === 'all' ? 'Filtros' : workerTypeFilter === 'professional' ? 'Empresa' : 'Autônomo'}
                         </button>
                         {['Elétrica', 'Limpeza', 'Pintura', 'Design'].map(cat => (
                             <button
@@ -2539,7 +2539,7 @@ export default function App() {
                     <img src={selectedPro?.avatar || MOCK_PROS[0].avatar} className="w-16 h-16 rounded-xl object-cover" alt="Pro" />
                     <div>
                         <h2 className="text-white font-bold text-base leading-tight">{selectedPro?.specialty || 'Serviço'}</h2>
-                        <p className="text-gray-400 text-xs mt-1">por {selectedPro?.name || 'Profissional'}</p>
+                        <p className="text-gray-400 text-xs mt-1">por {selectedPro?.name || 'Empresa'}</p>
                         <div className="flex items-center mt-1">
                             <Star className="text-[#1b7cf5] w-3 h-3 fill-[#1b7cf5] mr-1" />
                             <span className="text-[10px] font-bold text-white">{selectedPro?.rating || '5.0'}</span>
@@ -2926,7 +2926,7 @@ export default function App() {
                             <div className="flex flex-col gap-3">
                                 {[
                                     { id: 'all', label: 'Todos os tipos', icon: <Grid className="w-4 h-4" /> },
-                                    { id: 'professional', label: 'Empresa / Profissional', icon: <Briefcase className="w-4 h-4" /> },
+                                    { id: 'professional', label: 'Empresa', icon: <Briefcase className="w-4 h-4" /> },
                                     { id: 'autonomous', label: 'Autônomo Freelance', icon: <UserIcon className="w-4 h-4" /> }
                                 ].map((type) => (
                                     <button
@@ -3119,7 +3119,7 @@ export default function App() {
                         <div className="flex items-center gap-4">
                             <img src={selectedPro?.avatar || MOCK_PROS[0].avatar} className="w-14 h-14 rounded-2xl object-cover" alt="Pro" />
                             <div>
-                                <h3 className="text-white font-bold">{selectedPro?.name || 'Profissional'}</h3>
+                                <h3 className="text-white font-bold">{selectedPro?.name || 'Empresa'}</h3>
                                 <p className="text-[#1b7cf5] text-xs font-bold uppercase tracking-wider">{selectedPro?.specialty || 'Serviço'}</p>
                             </div>
                         </div>
